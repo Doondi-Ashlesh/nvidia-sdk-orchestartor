@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* ── Scrollbar styling — matches NVIDIA dark theme ─────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ── Hex clip helpers (used with Tailwind arbitrary values) ─────────────── */
+.hex-clip {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+/* ── Selection color ─────────────────────────────────────────────────────── */
+::selection {
+  background: #76b90040;
+  color: #fff;
+}
+
+/* ── Focus ring — NVIDIA green ───────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #76b900;
+  outline-offset: 2px;
+}
+
+/* ── Horizontal scroll snap (optional) ───────────────────────────────────── */
+.columns-scroll {
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+}
+
+/* ── React Flow controls — NVIDIA green theme ────────────────────────────── */
+.nv-controls {
+  background: #050505 !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 12px #76b90015 !important;
+  overflow: hidden;
+}
+.nv-controls .react-flow__controls-button {
+  background: #0a0a0a !important;
+  border: none !important;
+  border-bottom: 1px solid #1e293b !important;
+  color: #76b900 !important;
+  fill: #76b900 !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 5px !important;
+  transition: background 0.15s ease !important;
+}
+.nv-controls .react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+.nv-controls .react-flow__controls-button:hover {
+  background: #76b90018 !important;
+}
+.nv-controls .react-flow__controls-button svg {
+  fill: #76b900 !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+}
+
+/* ── React Flow edge animation speed ─────────────────────────────────────── */
+.react-flow__edge-path {
+  stroke-dashoffset: 0;
+}
+
+/* ── Hide React Flow default selection box ───────────────────────────────── */
+.react-flow__nodesselection-rect,
+.react-flow__selection {
+  display: none !important;
+}
