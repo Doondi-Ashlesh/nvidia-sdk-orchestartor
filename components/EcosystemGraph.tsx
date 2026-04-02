@@ -77,16 +77,20 @@ function GraphInner({
 }: EcosystemGraphProps) {
   const { fitView } = useReactFlow();
 
-  // Tooltip state
+  // Hover tooltip (workflow / initial modes)
   const [tooltipService, setTooltipService] = useState<Service | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  // Click popup (explore mode)
+  const [clickedService, setClickedService] = useState<Service | null>(null);
+  const [clickPos, setClickPos] = useState({ x: 0, y: 0 });
 
   const workflowNodeIds = useMemo(
     () => (activeWorkflow ? getWorkflowNodeIds(activeWorkflow) : []),
     [activeWorkflow],
   );
 
-  // Mouse-move callback passed into each node's data
+  // Mouse-move callback — hover tooltip for non-explore modes
   const handleNodeMouseMove = useCallback(
     (service: Service, x: number, y: number) => {
       setTooltipService(service);
@@ -98,6 +102,16 @@ function GraphInner({
   const handleNodeHover = useCallback(
     (service: Service | null) => {
       if (!service) setTooltipService(null);
+      onHoverService(service);
+    },
+    [onHoverService],
+  );
+
+  // Click callback — explore mode popup
+  const handleNodeExploreClick = useCallback(
+    (service: Service, x: number, y: number) => {
+      setClickedService((prev) => (prev?.id === service.id ? null : service));
+      setClickPos({ x, y });
       onHoverService(service);
     },
     [onHoverService],
@@ -118,13 +132,15 @@ function GraphInner({
 
       const data: ServiceNodeData = {
         service,
-        stepNumber:   stepIdx >= 0 ? stepIdx + 1 : undefined,
+        stepNumber:     stepIdx >= 0 ? stepIdx + 1 : undefined,
         isHighlighted,
-        isDimmed:     mode === 'explore' ? false : isDimmed,
+        isDimmed:       mode === 'explore' ? false : isDimmed,
         isActiveStep,
-        onHover:      handleNodeHover,
-        onClick:      onClickService,
-        onMouseMove:  handleNodeMouseMove,
+        isExploreMode:  mode === 'explore',
+        onHover:        handleNodeHover,
+        onClick:        onClickService,
+        onMouseMove:    handleNodeMouseMove,
+        onExploreClick: handleNodeExploreClick,
       };
 
       return {
@@ -233,7 +249,7 @@ function GraphInner({
 
   return (
     <div
-      className="w-full h-full relative"
+      className={`w-full h-full relative${mode === 'explore' ? ' explore-mode' : ''}`}
       onMouseLeave={() => setTooltipService(null)}
     >
       <ReactFlow
@@ -252,6 +268,7 @@ function GraphInner({
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
         style={{ background: '#000000' }}
+        onPaneClick={() => setClickedService(null)}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -266,14 +283,26 @@ function GraphInner({
         />
       </ReactFlow>
 
-      {/* Game HUD tooltip — fixed overlay near cursor */}
+      {/* Hover HUD tooltip — non-explore modes only */}
       <AnimatePresence>
-        {tooltipService && (
+        {mode !== 'explore' && tooltipService && (
           <NodeTooltip
             service={tooltipService}
             x={mousePos.x}
             y={mousePos.y}
-            isExploreMode={mode === 'explore'}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Explore mode click popup */}
+      <AnimatePresence>
+        {mode === 'explore' && clickedService && (
+          <NodeTooltip
+            service={clickedService}
+            x={clickPos.x}
+            y={clickPos.y}
+            isExploreMode
+            onClose={() => setClickedService(null)}
           />
         )}
       </AnimatePresence>

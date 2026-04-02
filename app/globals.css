@@ -93,3 +93,11 @@
 .react-flow__selection {
   display: none !important;
 }
+
+/* ── Explore mode — default cursor (no grab) ─────────────────────────────── */
+.explore-mode .react-flow__pane {
+  cursor: default !important;
+}
+.explore-mode .react-flow__renderer {
+  cursor: default !important;
+}

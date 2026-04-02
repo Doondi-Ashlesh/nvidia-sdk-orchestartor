@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { LAYER_LABELS, type Service } from '@/types/ecosystem';
 
 interface NodeTooltipProps {
@@ -9,11 +9,12 @@ interface NodeTooltipProps {
   x: number;
   y: number;
   isExploreMode?: boolean;
+  onClose?: () => void;
 }
 
 const EDGE_MARGIN = 12;
 
-export default function NodeTooltip({ service, x, y, isExploreMode = false }: NodeTooltipProps) {
+export default function NodeTooltip({ service, x, y, isExploreMode = false, onClose }: NodeTooltipProps) {
   const vw = typeof window !== 'undefined' ? window.innerWidth  : 1440;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
 
@@ -38,7 +39,7 @@ export default function NodeTooltip({ service, x, y, isExploreMode = false }: No
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.14, ease: 'easeOut' }}
         className="fixed z-[9999] select-none"
-        style={{ pointerEvents: 'none', left, top, width: TOOLTIP_W }}
+        style={{ pointerEvents: 'auto', left, top, width: TOOLTIP_W }}
       >
         <div
           style={{
@@ -57,17 +58,30 @@ export default function NodeTooltip({ service, x, y, isExploreMode = false }: No
           />
 
           <div className="p-5 space-y-3.5">
-            {/* Layer badge */}
-            <span
-              className="inline-block text-[10px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded"
-              style={{
-                background: '#76b90015',
-                color:      '#76b900',
-                border:     '1px solid #76b90030',
-              }}
-            >
-              {LAYER_LABELS[service.layer]}
-            </span>
+            {/* Layer badge + close button row */}
+            <div className="flex items-center justify-between">
+              <span
+                className="inline-block text-[10px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded"
+                style={{
+                  background: '#76b90015',
+                  color:      '#76b900',
+                  border:     '1px solid #76b90030',
+                }}
+              >
+                {LAYER_LABELS[service.layer]}
+              </span>
+              {onClose && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onClose(); }}
+                  className="flex items-center justify-center w-6 h-6 rounded transition-colors"
+                  style={{ color: '#76b90060', pointerEvents: 'auto' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#76b900')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#76b90060')}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
             {/* Service name — green, prominent */}
             <h3
