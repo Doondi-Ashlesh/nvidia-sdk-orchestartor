@@ -2,11 +2,21 @@
 
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Menu } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import EcosystemGraph from '@/components/EcosystemGraph';
 import { LAYER_ORDER, LAYER_LABELS, LAYER_SUBLABELS } from '@/types/ecosystem';
 import type { AppMode, Layer, Service, Workflow } from '@/types/ecosystem';
+
+// Abbreviated labels for column headers at medium/tablet widths
+const LAYER_SHORT_LABELS: Record<string, string> = {
+  access:     'Access',
+  sdk:        'SDK',
+  framework:  'Frameworks',
+  agent:      'Agentic',
+  serving:    'Serving',
+  enterprise: 'Enterprise',
+};
 
 // Services in each layer — used by layer dropdown
 import { NVIDIA_SERVICES } from '@/data/nvidia';
@@ -18,6 +28,7 @@ export default function Home() {
   const [hoveredService, setHoveredService]   = useState<Service | null>(null);
   const [focusLayer, setFocusLayer]           = useState<Layer | null>(null);
   const [dropdownLayer, setDropdownLayer]     = useState<Layer | null>(null);
+  const [sidebarOpen, setSidebarOpen]         = useState(false);
 
   const handleSelectWorkflow = useCallback((wf: Workflow) => {
     setActiveWorkflow(wf);
@@ -73,6 +84,15 @@ export default function Home() {
 
   return (
     <div className="fixed inset-0 bg-black flex overflow-hidden">
+
+      {/* Mobile backdrop — closes sidebar when tapped */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-20 sm:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar
         mode={mode}
         activeWorkflow={activeWorkflow}
@@ -83,22 +103,34 @@ export default function Home() {
         onStepChange={handleStepChange}
         onExitWorkflow={handleExitWorkflow}
         onBackToInitial={handleBackToInitial}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 ml-72">
+      {/* Main — full width on mobile (sidebar overlays), offset on sm+ */}
+      <div className="flex-1 flex flex-col min-w-0 sm:ml-72">
 
         {/* Top bar */}
-        <div className="h-14 flex items-center px-6 border-b border-[#111] shrink-0 bg-black">
+        <div className="h-14 flex items-center px-4 sm:px-6 gap-3 border-b border-[#111] shrink-0 bg-black">
+          {/* Hamburger — mobile only */}
+          <button
+            className="sm:hidden shrink-0 text-slate-400 hover:text-[#76b900] transition-colors"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
+          </button>
+
           {mode === 'initial' && (
-            <p className="text-slate-500 text-xs">
+            <p className="text-slate-500 text-xs truncate min-w-0">
               <span className="text-slate-300 font-semibold">NVIDIA AI Ecosystem</span>
-              {' '}— Describe your goal to generate a custom path, or explore all services
+              <span className="hidden sm:inline"> — Describe your goal to generate a custom path, or explore all services</span>
             </p>
           )}
           {mode === 'explore' && (
-            <p className="text-slate-500 text-xs">
+            <p className="text-slate-500 text-xs truncate min-w-0">
               <span className="text-[#76b900] font-semibold">Explore mode</span>
-              {' '}— Hover any service for a tooltip · click to open official docs
+              <span className="hidden sm:inline"> — Hover any service for a tooltip · click to open official docs</span>
             </p>
           )}
           {mode === 'workflow' && activeWorkflow && (
@@ -166,7 +198,9 @@ export default function Home() {
                       className="text-[9px] font-bold uppercase tracking-widest transition-colors truncate"
                       style={{ color: isActive ? '#76b900' : '#76b90055' }}
                     >
-                      {LAYER_LABELS[layer]}
+                      {/* Short label on medium screens, full label on lg+ */}
+                      <span className="lg:hidden">{LAYER_SHORT_LABELS[layer]}</span>
+                      <span className="hidden lg:inline">{LAYER_LABELS[layer]}</span>
                     </p>
                     <p
                       className="text-[7.5px] mt-0.5 truncate transition-colors hidden lg:block"

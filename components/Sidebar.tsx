@@ -32,6 +32,8 @@ interface SidebarProps {
   onStepChange: (index: number) => void;
   onExitWorkflow: () => void;
   onBackToInitial: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export default function Sidebar({
@@ -44,6 +46,8 @@ export default function Sidebar({
   onStepChange,
   onExitWorkflow,
   onBackToInitial,
+  isOpen = false,
+  onClose,
 }: SidebarProps) {
   const [goal, setGoal]       = useState('');
   const [loading, setLoading] = useState(false);
@@ -127,7 +131,7 @@ export default function Sidebar({
   );
 
   return (
-    <aside className="fixed top-0 left-0 bottom-0 w-72 z-30 flex flex-col bg-[#050505] border-r border-[#1a1a1a] overflow-hidden">
+    <aside className={`fixed top-0 left-0 bottom-0 w-72 z-30 flex flex-col bg-[#050505] border-r border-[#1a1a1a] overflow-hidden transition-transform duration-300 ease-in-out sm:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
       {/* ── Branding ────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">
