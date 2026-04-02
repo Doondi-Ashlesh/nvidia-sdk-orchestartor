@@ -25,8 +25,9 @@ const LAYER_ORDER = ['access', 'sdk', 'framework', 'agent', 'serving', 'enterpri
 // ── Intra-layer dependency pairs ──────────────────────────────────────────────
 // When BOTH services appear in a path, the left one MUST come first.
 const INTRA_LAYER_ORDER: Array<[string, string]> = [
-  // NeMo is the parent framework — all NeMo microservices depend on it
-  ['nemo', 'nemo-curator'],
+  // NeMo Curator prepares data BEFORE NeMo fine-tunes on it — workflow order, not install order
+  ['nemo-curator', 'nemo'],
+  // Other NeMo microservices run on top of the NeMo framework — NeMo must be set up first
   ['nemo', 'nemo-guardrails'],
   ['nemo', 'nemo-retriever'],
   ['nemo', 'nemo-agent-toolkit'],
@@ -62,7 +63,7 @@ const MANDATORY_PAIRS: Array<{ if: string; thenInclude: string; reason: string }
   {
     if: 'nemo-curator',
     thenInclude: 'nemo',
-    reason: 'NeMo Curator is a NeMo microservice — the NeMo framework must be present as the parent',
+    reason: 'NeMo Curator prepares data for NeMo training — both must appear, with curator first',
   },
 ];
 
@@ -179,9 +180,10 @@ RULE 6 — STRICTLY OFFICIAL DOCUMENTATION
 
 RULE 7 — FINE-TUNING PATHS REQUIRE DATA PREPARATION
   If the goal involves fine-tuning, customising, or training a model on custom/own data:
-    • You MUST include "nemo-curator" for dataset cleaning and preparation BEFORE fine-tuning.
+    • You MUST include "nemo-curator" BEFORE "nemo" — data is always curated before training.
     • You MUST NOT include "tensorrt" or "tensorrt-llm" — they are inference-only tools.
     • Correct fine-tune order: [access] → nemo-curator → nemo → [nim or triton]
+    • WRONG: nemo → nemo-curator  |  CORRECT: nemo-curator → nemo
 
 RULE 8 — SELF-VERIFICATION CHECKLIST
   Before returning your answer, verify ALL of the following:
