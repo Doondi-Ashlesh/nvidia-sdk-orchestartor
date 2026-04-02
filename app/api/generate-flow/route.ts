@@ -59,6 +59,11 @@ const MANDATORY_PAIRS: Array<{ if: string; thenInclude: string; reason: string }
     thenInclude: 'nim',
     reason: 'NVIDIA Blueprints combine NIM microservices as the inference layer',
   },
+  {
+    if: 'nemo-curator',
+    thenInclude: 'nemo',
+    reason: 'NeMo Curator is a NeMo microservice — the NeMo framework must be present as the parent',
+  },
 ];
 
 // ── Service use-case exclusions ───────────────────────────────────────────────
@@ -66,14 +71,19 @@ const MANDATORY_PAIRS: Array<{ if: string; thenInclude: string; reason: string }
 const SERVICE_EXCLUSIONS: Array<{ id: string; notFor: string[]; reason: string }> = [
   {
     id: 'tensorrt',
-    notFor: ['rag', 'retrieval', 'agent', 'agentic', 'chatbot', 'document', 'knowledge base'],
+    notFor: [
+      'rag', 'retrieval', 'agent', 'agentic', 'chatbot', 'document', 'knowledge base',
+      'fine-tune', 'fine-tuning', 'finetune', 'train', 'training', 'pre-train', 'pre-training',
+      'multimodal', 'multi-modal', 'customize', 'customise',
+    ],
     reason:
-      'TensorRT is for optimising neural network inference (CNNs, LLMs, diffusion). ' +
-      'It is NOT a component of RAG pipelines or agentic systems.',
+      'TensorRT optimises already-trained neural networks for inference (CNNs, LLMs, diffusion). ' +
+      'It is NOT used during training, fine-tuning, RAG pipelines, or agentic systems. ' +
+      'Only include TensorRT when the goal explicitly asks to speed up or optimise inference.',
   },
   {
     id: 'tensorrt-llm',
-    notFor: ['rag', 'retrieval', 'agent', 'agentic'],
+    notFor: ['rag', 'retrieval', 'agent', 'agentic', 'fine-tune', 'fine-tuning', 'train', 'training'],
     reason:
       'TensorRT-LLM is for LLM inference optimisation and powers NIM. ' +
       'Include it only when the goal explicitly involves LLM inference optimisation.',
@@ -167,15 +177,22 @@ RULE 6 — STRICTLY OFFICIAL DOCUMENTATION
   Every step must be grounded in NVIDIA's official documentation for that service.
   Do not invent capabilities, connections, or use-cases that are not officially documented.
 
-RULE 7 — SELF-VERIFICATION CHECKLIST
+RULE 7 — FINE-TUNING PATHS REQUIRE DATA PREPARATION
+  If the goal involves fine-tuning, customising, or training a model on custom/own data:
+    • You MUST include "nemo-curator" for dataset cleaning and preparation BEFORE fine-tuning.
+    • You MUST NOT include "tensorrt" or "tensorrt-llm" — they are inference-only tools.
+    • Correct fine-tune order: [access] → nemo-curator → nemo → [nim or triton]
+
+RULE 8 — SELF-VERIFICATION CHECKLIST
   Before returning your answer, verify ALL of the following:
     (a) Every serviceId is a real id from the list below ✓
     (b) Cross-layer order strictly follows: ${layerOrderStr} ✓
     (c) Intra-layer dependency order is respected (Rule 2) ✓
     (d) All mandatory co-inclusions are satisfied (Rule 3) ✓
     (e) No excluded services appear for this goal type (Rule 4) ✓
-    (f) Every action is grounded in official NVIDIA documentation ✓
-    (g) The complete path genuinely solves the stated goal ✓
+    (f) Fine-tuning goals include nemo-curator and exclude tensorrt/tensorrt-llm (Rule 7) ✓
+    (g) Every action is grounded in official NVIDIA documentation ✓
+    (h) The complete path genuinely solves the stated goal ✓
   Only set verified:true if every single check passes.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
