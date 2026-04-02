@@ -19,18 +19,25 @@ interface NodeTooltipProps {
   y: number;
 }
 
-const TOOLTIP_W = 276;
+const TOOLTIP_W   = 276;
+const TOOLTIP_H   = 200; // conservative estimate for flip threshold
+const EDGE_MARGIN = 10;  // minimum gap from viewport edge
 
 export default function NodeTooltip({ service, x, y }: NodeTooltipProps) {
-  // Flip horizontally if too close to right edge
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 1440;
+  const vw = typeof window !== 'undefined' ? window.innerWidth  : 1440;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
-  const flipX = x + 20 + TOOLTIP_W > vw;
-  const left  = flipX ? x - TOOLTIP_W - 12 : x + 20;
 
-  // Estimated height ~180px; flip up if near bottom
-  const flipY = y + 200 > vh;
-  const top   = flipY ? y - 190 : y - 12;
+  // Flip horizontally if too close to right edge
+  const flipX    = x + 20 + TOOLTIP_W > vw - EDGE_MARGIN;
+  const rawLeft  = flipX ? x - TOOLTIP_W - 12 : x + 20;
+  // Clamp so tooltip never goes off either horizontal edge
+  const left     = Math.min(Math.max(rawLeft, EDGE_MARGIN), vw - TOOLTIP_W - EDGE_MARGIN);
+
+  // Flip vertically if too close to bottom
+  const flipY  = y + TOOLTIP_H + 20 > vh - EDGE_MARGIN;
+  const rawTop = flipY ? y - TOOLTIP_H - 10 : y - 12;
+  // Clamp so tooltip never goes above top of viewport
+  const top    = Math.max(rawTop, EDGE_MARGIN);
 
   return (
     <motion.div

@@ -70,6 +70,19 @@
   max-height: 14px !important;
 }
 
+/* ── React Flow controls — touch-friendly on small screens ──────────────── */
+@media (max-width: 768px) {
+  .nv-controls .react-flow__controls-button {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 8px !important;
+  }
+  .nv-controls .react-flow__controls-button svg {
+    max-width: 16px !important;
+    max-height: 16px !important;
+  }
+}
+
 /* ── React Flow edge animation speed ─────────────────────────────────────── */
 .react-flow__edge-path {
   stroke-dashoffset: 0;

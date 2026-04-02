@@ -102,21 +102,23 @@ export default function Home() {
             </p>
           )}
           {mode === 'workflow' && activeWorkflow && (
-            <div className="flex items-center gap-3">
-              <span className="text-[#76b900] font-semibold text-xs">{activeWorkflow.goal}</span>
-              <span className="text-slate-700 text-[10px]">·</span>
-              <span className="text-slate-500 text-xs">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <span className="text-[#76b900] font-semibold text-xs truncate max-w-[260px] shrink-0">
+                {activeWorkflow.goal}
+              </span>
+              <span className="text-slate-700 text-[10px] shrink-0">·</span>
+              <span className="text-slate-500 text-xs truncate hidden sm:block">
                 Follow the numbered steps — highlighted nodes form your AI-generated path
               </span>
             </div>
           )}
 
           {/* Layer legend */}
-          <div className="ml-auto hidden xl:flex items-center gap-5">
+          <div className="ml-auto hidden lg:flex items-center gap-4 shrink-0">
             {LAYER_ORDER.map((layer) => (
               <div key={layer} className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#76b900' }} />
-                <span className="text-[10px] text-slate-500">{LAYER_LABELS[layer]}</span>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#76b900' }} />
+                <span className="text-[10px] text-slate-500 whitespace-nowrap">{LAYER_LABELS[layer]}</span>
               </div>
             ))}
           </div>
@@ -135,30 +137,39 @@ export default function Home() {
 
           {/* Layer column headers — flex-equal so they span the full width */}
           <div className="absolute top-0 left-0 right-0 z-10 flex pointer-events-none">
-            {LAYER_ORDER.map((layer) => {
+            {LAYER_ORDER.map((layer, layerIdx) => {
               const isActive = dropdownLayer === layer;
+              const isFirst  = layerIdx === 0;
+              const isLast   = layerIdx === LAYER_ORDER.length - 1;
               const layerServices = NVIDIA_SERVICES.filter((s) => s.layer === layer);
+
+              // Clamp dropdown so first column doesn't overflow left, last doesn't overflow right
+              const dropdownPosition = isFirst
+                ? 'left-0'
+                : isLast
+                ? 'right-0'
+                : 'left-1/2 -translate-x-1/2';
 
               return (
                 <div
                   key={layer}
-                  className="flex-1 relative pointer-events-auto"
+                  className="flex-1 relative pointer-events-auto min-w-0"
                   onMouseEnter={() => handleLayerEnter(layer)}
                   onMouseLeave={handleLayerLeave}
                 >
                   {/* Header label */}
                   <div
-                    className="text-center py-2.5 px-2 cursor-pointer transition-colors"
+                    className="text-center py-2.5 px-1 cursor-pointer transition-colors"
                     style={{ borderBottom: isActive ? '1px solid #76b90040' : '1px solid transparent' }}
                   >
                     <p
-                      className="text-[9px] font-bold uppercase tracking-widest transition-colors"
+                      className="text-[9px] font-bold uppercase tracking-widest transition-colors truncate"
                       style={{ color: isActive ? '#76b900' : '#76b90055' }}
                     >
                       {LAYER_LABELS[layer]}
                     </p>
                     <p
-                      className="text-[7.5px] mt-0.5 whitespace-nowrap truncate transition-colors"
+                      className="text-[7.5px] mt-0.5 truncate transition-colors hidden lg:block"
                       style={{ color: isActive ? '#64748b' : '#374151' }}
                     >
                       {LAYER_SUBLABELS[layer]}
@@ -173,7 +184,7 @@ export default function Home() {
                         animate={{ opacity: 1, y: 0, scaleY: 1 }}
                         exit={{ opacity: 0, y: -4, scaleY: 0.95 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50"
+                        className={`absolute top-full mt-1 z-50 ${dropdownPosition}`}
                         style={{
                           transformOrigin: 'top center',
                           width:      'max-content',

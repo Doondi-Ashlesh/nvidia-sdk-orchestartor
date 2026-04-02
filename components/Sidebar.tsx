@@ -127,7 +127,7 @@ export default function Sidebar({
   );
 
   return (
-    <aside className="fixed top-0 left-0 bottom-0 w-72 z-30 flex flex-col bg-[#050505] border-r border-[#1a1a1a]">
+    <aside className="fixed top-0 left-0 bottom-0 w-72 z-30 flex flex-col bg-[#050505] border-r border-[#1a1a1a] overflow-hidden">
 
       {/* ── Branding ────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">
@@ -372,7 +372,7 @@ export default function Sidebar({
               </div>
 
               {/* Steps list */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 min-h-0">
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5 min-h-0">
                 {activeWorkflow.steps.map((step, idx) => {
                   const isActive    = idx === activeStepIndex;
                   const isCompleted = idx < activeStepIndex;
@@ -410,7 +410,7 @@ export default function Sidebar({
                         </div>
                       </div>
                       {isActive && (
-                        <p className="text-slate-300 text-[11px] leading-relaxed mt-2.5 pl-7">
+                        <p className="text-slate-300 text-[11px] leading-relaxed mt-2.5 pl-7 break-words">
                           {step.action}
                         </p>
                       )}
@@ -457,7 +457,7 @@ export default function Sidebar({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="px-6 pt-5"
+              className="px-6 pt-5 pb-4"
             >
               <button
                 onClick={onBackToInitial}

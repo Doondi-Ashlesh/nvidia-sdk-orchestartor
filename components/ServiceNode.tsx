@@ -136,7 +136,7 @@ function ServiceNodeComponent({ data }: NodeProps) {
       {/* Step number badge */}
       {stepNumber !== undefined && (
         <div
-          className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[8px] font-black z-10"
+          className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[8px] font-black z-20"
           style={{
             background: isActiveStep ? GREEN : '#0d1117',
             color:      isActiveStep ? '#000' : GREEN,
