@@ -42,7 +42,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'ngc',
-    name: 'NVIDIA NGC Catalog',
+    name: 'NGC Catalog',
     shortDescription: 'Curated GPU-accelerated containers, models, and resources.',
     // Source: catalog.ngc.nvidia.com official description
     fullDescription:
@@ -170,17 +170,17 @@ export const NVIDIA_SERVICES: Service[] = [
     id: 'ai-workbench',
     name: 'NVIDIA AI Workbench',
     shortDescription: 'Free GPU dev environment manager using Git and containers.',
-    // Source: nvidia.com/en-us/ai-data-science/ai-workbench/
+    // Source: developer.nvidia.com/ai-workbench
     fullDescription:
       'A free development environment manager for data scientists and developers to create, customize, and collaborate on AI applications on GPU systems. Uses Git and containers across machines and users. Supports fine-tuning LLMs (Llama 3, Mistral, Phi-3), SDXL, agentic RAG, and full-stack AI development with VS Code, Cursor, JupyterLab.',
-    officialUrl: 'https://www.nvidia.com/en-us/ai-data-science/ai-workbench/',
+    officialUrl: 'https://developer.nvidia.com/ai-workbench',
     layer: 'framework',
     tags: ['dev environment', 'fine-tuning', 'containers', 'Git', 'free'],
     connections: ['nim', 'nemo'],
   },
   {
     id: 'rapids',
-    name: 'NVIDIA RAPIDS',
+    name: 'RAPIDS',
     shortDescription: 'End-to-end GPU-accelerated data science with PyData APIs.',
     // Source: rapids.ai and official NVIDIA RAPIDS docs
     fullDescription:
@@ -221,10 +221,10 @@ export const NVIDIA_SERVICES: Service[] = [
     id: 'blueprints',
     name: 'NVIDIA AI Blueprints',
     shortDescription: 'Production-ready reference applications for generative AI use cases.',
-    // Source: nvidia.com/en-us/ai/blueprints/
+    // Source: developer.nvidia.com/ai-blueprints
     fullDescription:
       'Reference applications for generative AI use cases combining partner microservices, AI agents, sample code, customization guides, and deployment documentation. Covers digital customer service avatars, video analytics agents, PDF-to-podcast, network operations, cybersecurity threat detection, manufacturing, and logistics.',
-    officialUrl: 'https://www.nvidia.com/en-us/ai/blueprints/',
+    officialUrl: 'https://developer.nvidia.com/ai-blueprints',
     layer: 'agent',
     tags: ['reference apps', 'agents', 'production', 'customer service', 'video analytics'],
     connections: ['nim', 'ai-enterprise'],
@@ -239,7 +239,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/triton-inference-server
     fullDescription:
       'NVIDIA Dynamo is an open-source distributed inference framework designed for high-throughput LLM serving across multi-GPU and multi-node deployments, built on NVIDIA Triton Inference Server. Triton supports all major backends — TensorRT™, PyTorch, TensorFlow, ONNX, OpenVINO, Python, and RAPIDS FIL — with dynamic batching, concurrent model execution, KV cache, model ensembles, Kubernetes integration, and Prometheus metrics. Together, Dynamo and Triton form NVIDIA\'s production serving stack.',
-    officialUrl: 'https://developer.nvidia.com/nvidia-dynamo',
+    officialUrl: 'https://developer.nvidia.com/triton-inference-server',
     layer: 'serving',
     tags: ['inference server', 'model serving', 'Kubernetes', 'LLM', 'multi-framework'],
     connections: ['ai-enterprise'],

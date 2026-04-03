@@ -137,12 +137,13 @@ export default function Sidebar({
       {/* ── Branding ────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">
         <div className="flex items-center gap-2.5 mb-1">
-          {/* NVIDIA logo mark */}
-          <svg width="32" height="22" viewBox="0 0 32 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="22" rx="2" fill="#76b900"/>
-            {/* Eye / swoosh inner shape */}
-            <path d="M4 16 L4 6 L9 6 L16 13.5 L16 6 L21 6 L21 16 L16 16 L9 8.5 L9 16 Z" fill="#000"/>
-            <path d="M22 6 L27 6 L27 16 L22 16 Z" fill="#000"/>
+          {/* Official NVIDIA eye mark */}
+          <svg width="28" height="28" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="220" height="220" rx="16" fill="#76b900"/>
+            <path d="M110 175 C55 175 18 145 5 110 C18 75 55 45 110 45 C165 45 202 75 215 110 C202 145 165 175 110 175Z" fill="#1a1a1a"/>
+            <circle cx="110" cy="128" r="42" fill="#76b900"/>
+            <circle cx="110" cy="128" r="20" fill="#0a0a0a"/>
+            <path d="M5 110 C18 75 55 45 110 45 C165 45 202 75 215 110 C190 90 155 78 110 78 C65 78 30 90 5 110Z" fill="#0a0a0a"/>
           </svg>
           <span className="text-[13px] font-black tracking-[0.22em] text-[#76b900] uppercase leading-none">
             NVIDIA
