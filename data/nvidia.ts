@@ -69,7 +69,7 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'cuda',
-    name: 'NVIDIA CUDA® Toolkit',
+    name: 'NVIDIA CUDA Toolkit',
     shortDescription: 'Comprehensive dev environment for GPU-accelerated apps.',
     // Source: developer.nvidia.com/cuda-toolkit
     fullDescription:
@@ -81,7 +81,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'cudnn',
-    name: 'NVIDIA cuDNN™',
+    name: 'NVIDIA cuDNN',
     shortDescription: 'GPU-accelerated library of deep neural network primitives.',
     // Source: developer.nvidia.com/cudnn
     fullDescription:
@@ -93,7 +93,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'tensorrt',
-    name: 'NVIDIA TensorRT™',
+    name: 'NVIDIA TensorRT',
     shortDescription: 'Inference optimizer — up to 36× faster than CPU-only platforms.',
     // Source: developer.nvidia.com/tensorrt
     fullDescription:
@@ -120,7 +120,7 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'nemo',
-    name: 'NVIDIA NeMo™',
+    name: 'NVIDIA NeMo',
     shortDescription: 'Cloud-native framework for LLMs, multimodal, and speech AI.',
     // Source: docs.nvidia.com/nemo-framework and nvidia.com/en-us/ai-data-science/nemo/
     fullDescription:
@@ -132,7 +132,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-curator',
-    name: 'NVIDIA NeMo™ Curator',
+    name: 'NVIDIA NeMo Curator',
     shortDescription: 'Data preparation and cleaning for LLM pre-training.',
     // Source: official NeMo microservices documentation
     fullDescription:
@@ -144,7 +144,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-guardrails',
-    name: 'NVIDIA NeMo™ Guardrails',
+    name: 'NVIDIA NeMo Guardrails',
     shortDescription: 'Programmable safety and compliance rails for LLM apps.',
     // Source: developer.nvidia.com/nemo-guardrails
     fullDescription:
@@ -156,7 +156,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-retriever',
-    name: 'NVIDIA NeMo™ Retriever',
+    name: 'NVIDIA NeMo Retriever',
     shortDescription: 'Document extraction and RAG pipeline microservices.',
     // Source: official NeMo microservices documentation
     fullDescription:
@@ -180,7 +180,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'rapids',
-    name: 'NVIDIA RAPIDS™',
+    name: 'NVIDIA RAPIDS',
     shortDescription: 'End-to-end GPU-accelerated data science with PyData APIs.',
     // Source: rapids.ai and official NVIDIA RAPIDS docs
     fullDescription:
@@ -195,7 +195,7 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'nemotron',
-    name: 'NVIDIA Nemotron™',
+    name: 'NVIDIA Nemotron',
     shortDescription: 'Open models with open weights, data, and recipes for agents.',
     // Source: developer.nvidia.com/nemotron
     fullDescription:
@@ -207,7 +207,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-agent-toolkit',
-    name: 'NeMo™ Agent Toolkit',
+    name: 'NeMo Agent Toolkit',
     shortDescription: 'Open-source library adding intelligence and observability to AI agents.',
     // Source: docs.nvidia.com/nemo-framework — NeMo Agent Toolkit overview
     fullDescription:
@@ -246,7 +246,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nim',
-    name: 'NVIDIA NIM™',
+    name: 'NVIDIA NIM',
     shortDescription: 'Optimized cloud-native AI model deployment — anywhere.',
     // Source: developer.nvidia.com/nim
     fullDescription:
@@ -261,11 +261,11 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'ai-enterprise',
-    name: 'NVIDIA AI Enterprise™',
+    name: 'NVIDIA AI Enterprise',
     shortDescription: 'Enterprise AI platform — secure, stable, SLA-backed production.',
     // Source: official NVIDIA AI Enterprise documentation
     fullDescription:
-      'Enterprise-grade AI software platform providing secure, stable, and supported AI services with SLAs. Wraps NVIDIA NIM™, NVIDIA Dynamo-Triton™, NVIDIA NGC™ Catalog, and NVIDIA AI Workbench™ for production deployments. Offers 36-month support lifecycle, enterprise security features, and certified infrastructure for regulated industry deployments.',
+      'Enterprise-grade AI software platform providing secure, stable, and supported AI services with SLAs. Wraps NVIDIA NIM, NVIDIA Dynamo-Triton™, NVIDIA NGC™ Catalog, and NVIDIA AI Workbench™ for production deployments. Offers 36-month support lifecycle, enterprise security features, and certified infrastructure for regulated industry deployments.',
     officialUrl: 'https://www.nvidia.com/en-us/data-center/products/ai-enterprise/',
     layer: 'enterprise',
     tags: ['enterprise', 'SLA', 'production', 'security', 'support'],
