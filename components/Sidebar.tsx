@@ -138,21 +138,7 @@ export default function Sidebar({
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">
         <div className="flex items-center gap-2.5 mb-1">
           {/* Official NVIDIA eye mark */}
-          <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" rx="8" fill="#76b900"/>
-            <defs>
-              <clipPath id="nvSidebarClip">
-                <rect width="74" height="100"/>
-              </clipPath>
-            </defs>
-            <g clipPath="url(#nvSidebarClip)">
-              <circle cx="50" cy="50" r="46" fill="#000"/>
-              <circle cx="50" cy="50" r="36" fill="#76b900"/>
-              <circle cx="50" cy="50" r="26" fill="#000"/>
-              <circle cx="50" cy="50" r="16" fill="#76b900"/>
-              <circle cx="50" cy="50" r="6" fill="#000"/>
-            </g>
-          </svg>
+            <img src="/nvidia.png" alt="NVIDIA" width={28} height={28} style={{ objectFit: 'contain' }} />
           <span className="text-[13px] font-black tracking-[0.22em] text-[#76b900] uppercase leading-none">
             NVIDIA
           </span>
