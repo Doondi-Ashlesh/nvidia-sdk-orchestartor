@@ -18,7 +18,7 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'build-nvidia',
-    name: 'build.nvidia.com',
+    name: 'NVIDIA Build',
     shortDescription: 'Try NIM APIs in the browser — no setup required.',
     // Source: official NIM docs — "API catalog (cloud-hosted)" deployment option
     fullDescription:
@@ -35,7 +35,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/brev
     fullDescription:
       'Provides streamlined access to NVIDIA GPU instances on popular cloud platforms with automatic environment setup and flexible deployment options, enabling developers to start experimenting instantly. Supports Launchables — preconfigured compute environments with optimized software stacks — for rapid GPU access, AI model development, and collaborative development.',
-    officialUrl: 'https://brev.dev',
+    officialUrl: 'https://developer.nvidia.com/brev',
     layer: 'access',
     tags: ['GPU', 'cloud', 'dev environment', 'Launchables'],
     connections: ['cuda', 'nim', 'ai-workbench'],
@@ -69,7 +69,7 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'cuda',
-    name: 'CUDA Toolkit',
+    name: 'NVIDIA CUDA Toolkit',
     shortDescription: 'Comprehensive dev environment for GPU-accelerated apps.',
     // Source: developer.nvidia.com/cuda-toolkit
     fullDescription:
@@ -81,7 +81,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'cudnn',
-    name: 'cuDNN',
+    name: 'NVIDIA cuDNN',
     shortDescription: 'GPU-accelerated library of deep neural network primitives.',
     // Source: developer.nvidia.com/cudnn
     fullDescription:
@@ -93,7 +93,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'tensorrt',
-    name: 'TensorRT',
+    name: 'NVIDIA TensorRT',
     shortDescription: 'Inference optimizer — up to 36× faster than CPU-only platforms.',
     // Source: developer.nvidia.com/tensorrt
     fullDescription:
@@ -110,7 +110,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/tensorrt (TensorRT ecosystem components)
     fullDescription:
       'A component of the TensorRT ecosystem specifically optimized for large language model inference. Powers NVIDIA NIM containerized deployments with advanced optimizations tailored to transformer architectures, enabling high-throughput LLM serving at scale.',
-    officialUrl: 'https://developer.nvidia.com/tensorrt',
+    officialUrl: 'https://developer.nvidia.com/tensorrt-llm',
     layer: 'sdk',
     tags: ['LLM', 'inference', 'transformer', 'optimization'],
     connections: ['nim', 'triton'],
@@ -132,7 +132,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-curator',
-    name: 'NeMo Curator',
+    name: 'NVIDIA NeMo Curator',
     shortDescription: 'Data preparation and cleaning for LLM pre-training.',
     // Source: official NeMo microservices documentation
     fullDescription:
@@ -144,7 +144,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-guardrails',
-    name: 'NeMo Guardrails',
+    name: 'NVIDIA NeMo Guardrails',
     shortDescription: 'Programmable safety and compliance rails for LLM apps.',
     // Source: developer.nvidia.com/nemo-guardrails
     fullDescription:
@@ -156,7 +156,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'nemo-retriever',
-    name: 'NeMo Retriever',
+    name: 'NVIDIA NeMo Retriever',
     shortDescription: 'Document extraction and RAG pipeline microservices.',
     // Source: official NeMo microservices documentation
     fullDescription:
@@ -219,7 +219,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'blueprints',
-    name: 'NVIDIA Blueprints',
+    name: 'NVIDIA AI Blueprints',
     shortDescription: 'Production-ready reference applications for generative AI use cases.',
     // Source: nvidia.com/en-us/ai/blueprints/
     fullDescription:
@@ -234,7 +234,7 @@ export const NVIDIA_SERVICES: Service[] = [
 
   {
     id: 'triton',
-    name: 'Triton Inference Server',
+    name: 'NVIDIA Triton Inference Server',
     shortDescription: 'Deploy AI across all major frameworks with dynamic batching.',
     // Source: developer.nvidia.com/triton-inference-server
     fullDescription:
@@ -265,7 +265,7 @@ export const NVIDIA_SERVICES: Service[] = [
     shortDescription: 'Enterprise AI platform — secure, stable, SLA-backed production.',
     // Source: official NVIDIA AI Enterprise documentation
     fullDescription:
-      'Enterprise-grade AI software platform providing secure, stable, and supported AI services with SLAs. Wraps NIM, Dynamo-Triton, NGC, and AI Workbench for production deployments. Offers 36-month support lifecycle, enterprise security features, and certified infrastructure for regulated industry deployments.',
+      'Enterprise-grade AI software platform providing secure, stable, and supported AI services with SLAs. Wraps NVIDIA NIM, NVIDIA Triton Inference Server, NVIDIA NGC Catalog, and NVIDIA AI Workbench for production deployments. Offers 36-month support lifecycle, enterprise security features, and certified infrastructure for regulated industry deployments.',
     officialUrl: 'https://www.nvidia.com/en-us/data-center/products/ai-enterprise/',
     layer: 'enterprise',
     tags: ['enterprise', 'SLA', 'production', 'security', 'support'],

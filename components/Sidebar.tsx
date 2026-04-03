@@ -538,7 +538,8 @@ export default function Sidebar({
                             <div key={id} className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#76b900' }} />
                               <span className="text-slate-400 text-base">
-                                {id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                                {NVIDIA_SERVICES.find((s) => s.id === id)?.name ??
+                                  id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                               </span>
                             </div>
                           ))}
