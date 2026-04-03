@@ -523,24 +523,6 @@ export default function Sidebar({
                       ))}
                     </div>
 
-                    {hoveredService.connections.length > 0 && (
-                      <div>
-                        <p className="text-sm uppercase tracking-widest text-slate-600 font-semibold mb-2">
-                          Connects to
-                        </p>
-                        <div className="space-y-1.5">
-                          {hoveredService.connections.map((id) => (
-                            <div key={id} className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#76b900' }} />
-                              <span className="text-slate-400 text-base">
-                                {NVIDIA_SERVICES.find((s) => s.id === id)?.name ??
-                                  id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </motion.div>
                 ) : (
                   <motion.div
@@ -557,7 +539,7 @@ export default function Sidebar({
                       <Compass size={18} className="text-[#76b900]" />
                     </div>
                     <p className="text-slate-500 text-base leading-relaxed">
-                      Click on any service node to see its official description and connections.
+                      Click on any service node to see its official description.
                     </p>
                   </motion.div>
                 )}
