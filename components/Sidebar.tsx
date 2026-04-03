@@ -558,7 +558,7 @@ export default function Sidebar({
                       <Compass size={18} className="text-[#76b900]" />
                     </div>
                     <p className="text-slate-500 text-base leading-relaxed">
-                      Hover over any service node to see its official description and connections.
+                      Click on any service node to see its official description and connections.
                     </p>
                   </motion.div>
                 )}
