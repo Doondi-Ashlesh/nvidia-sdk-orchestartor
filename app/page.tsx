@@ -122,29 +122,6 @@ export default function Home() {
             <Menu size={18} />
           </button>
 
-          {/* NVIDIA AI Ecosystem branding */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            {/* Official NVIDIA eye mark */}
-            <svg width="32" height="32" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="220" height="220" rx="16" fill="#76b900"/>
-              {/* sclera — the large sweeping cornea arc */}
-              <path d="M110 175 C55 175 18 145 5 110 C18 75 55 45 110 45 C165 45 202 75 215 110 C202 145 165 175 110 175Z" fill="#1a1a1a"/>
-              {/* iris */}
-              <circle cx="110" cy="128" r="42" fill="#76b900"/>
-              {/* pupil */}
-              <circle cx="110" cy="128" r="20" fill="#0a0a0a"/>
-              {/* upper lid shadow — gives the eye its distinctive shape */}
-              <path d="M5 110 C18 75 55 45 110 45 C165 45 202 75 215 110 C190 90 155 78 110 78 C65 78 30 90 5 110Z" fill="#0a0a0a"/>
-            </svg>
-            <span className="hidden sm:flex items-baseline gap-0">
-              <span className="text-[15px] font-black text-white tracking-[0.06em] leading-none">NVIDIA</span>
-              <span className="text-[15px] font-light text-[#76b900] tracking-[0.04em] leading-none"> AI ECOSYSTEM</span>
-            </span>
-          </div>
-
-          {/* Vertical rule */}
-          <div className="hidden sm:block w-px h-5 bg-[#2a2a2a] shrink-0" />
-
           {/* Mode indicator */}
           <div className="flex-1 min-w-0 hidden sm:block">
             {mode === 'initial' && (

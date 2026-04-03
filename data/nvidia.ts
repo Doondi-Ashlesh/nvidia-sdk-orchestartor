@@ -173,7 +173,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/ai-workbench
     fullDescription:
       'A free development environment manager for data scientists and developers to create, customize, and collaborate on AI applications on GPU systems. Uses Git and containers across machines and users. Supports fine-tuning LLMs (Llama 3, Mistral, Phi-3), SDXL, agentic RAG, and full-stack AI development with VS Code, Cursor, JupyterLab.',
-    officialUrl: 'https://developer.nvidia.com/ai-workbench',
+    officialUrl: 'https://docs.nvidia.com/ai-workbench/user-guide/latest/overview/introduction.html',
     layer: 'framework',
     tags: ['dev environment', 'fine-tuning', 'containers', 'Git', 'free'],
     connections: ['nim', 'nemo'],
@@ -224,7 +224,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/ai-blueprints
     fullDescription:
       'Reference applications for generative AI use cases combining partner microservices, AI agents, sample code, customization guides, and deployment documentation. Covers digital customer service avatars, video analytics agents, PDF-to-podcast, network operations, cybersecurity threat detection, manufacturing, and logistics.',
-    officialUrl: 'https://developer.nvidia.com/ai-blueprints',
+    officialUrl: 'https://docs.nvidia.com/vss/latest/index.html',
     layer: 'agent',
     tags: ['reference apps', 'agents', 'production', 'customer service', 'video analytics'],
     connections: ['nim', 'ai-enterprise'],

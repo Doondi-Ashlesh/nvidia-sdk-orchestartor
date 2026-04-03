@@ -138,12 +138,20 @@ export default function Sidebar({
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">
         <div className="flex items-center gap-2.5 mb-1">
           {/* Official NVIDIA eye mark */}
-          <svg width="28" height="28" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="220" height="220" rx="16" fill="#76b900"/>
-            <path d="M110 175 C55 175 18 145 5 110 C18 75 55 45 110 45 C165 45 202 75 215 110 C202 145 165 175 110 175Z" fill="#1a1a1a"/>
-            <circle cx="110" cy="128" r="42" fill="#76b900"/>
-            <circle cx="110" cy="128" r="20" fill="#0a0a0a"/>
-            <path d="M5 110 C18 75 55 45 110 45 C165 45 202 75 215 110 C190 90 155 78 110 78 C65 78 30 90 5 110Z" fill="#0a0a0a"/>
+          <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="8" fill="#76b900"/>
+            <defs>
+              <clipPath id="nvSidebarClip">
+                <rect width="74" height="100"/>
+              </clipPath>
+            </defs>
+            <g clipPath="url(#nvSidebarClip)">
+              <circle cx="50" cy="50" r="46" fill="#000"/>
+              <circle cx="50" cy="50" r="36" fill="#76b900"/>
+              <circle cx="50" cy="50" r="26" fill="#000"/>
+              <circle cx="50" cy="50" r="16" fill="#76b900"/>
+              <circle cx="50" cy="50" r="6" fill="#000"/>
+            </g>
           </svg>
           <span className="text-[13px] font-black tracking-[0.22em] text-[#76b900] uppercase leading-none">
             NVIDIA
