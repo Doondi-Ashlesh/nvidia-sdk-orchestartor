@@ -257,7 +257,6 @@ function GraphInner({
         elementsSelectable={false}
         minZoom={0.25}
         maxZoom={2}
-        zoomOnScrollSpeed={0.18}
         proOptions={{ hideAttribution: true }}
         style={{ background: '#000000' }}
         onNodeClick={(_, node) => {
