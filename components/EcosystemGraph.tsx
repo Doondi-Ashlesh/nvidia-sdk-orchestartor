@@ -123,6 +123,7 @@ function GraphInner({
         isDimmed:       mode === 'explore' ? false : isDimmed,
         isActiveStep,
         isExploreMode:  mode === 'explore',
+        focusLayer:     focusLayer ?? null,
         onHover:        handleNodeHover,
         onMouseMove:    handleNodeMouseMove,
       };
@@ -137,7 +138,7 @@ function GraphInner({
     });
   }, [
     mode, activeWorkflow, activeStepIndex, workflowNodeIds,
-    handleNodeHover, handleNodeMouseMove,
+    focusLayer, handleNodeHover, handleNodeMouseMove,
   ]);
 
   // ── Edges ──────────────────────────────────────────────────────────────────

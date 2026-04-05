@@ -28,6 +28,7 @@ function ServiceNodeComponent({ data }: NodeProps) {
     isDimmed,
     isActiveStep,
     isExploreMode,
+    focusLayer,
     onHover,
     onMouseMove,
   } = data as ServiceNodeData & {
@@ -36,8 +37,14 @@ function ServiceNodeComponent({ data }: NodeProps) {
 
   const [hovered, setHovered] = useState(false);
 
+  // ── Layer focus states ────────────────────────────────────────────────────
+  const isLayerFocused = focusLayer != null && service.layer === focusLayer;
+  const isLayerDimmed  = focusLayer != null && !isLayerFocused;
+
   // ── Visual state ─────────────────────────────────────────────────────────
   const borderColor = isActiveStep
+    ? GREEN
+    : isLayerFocused
     ? GREEN
     : isHighlighted
     ? `${GREEN}cc`
@@ -45,7 +52,7 @@ function ServiceNodeComponent({ data }: NodeProps) {
     ? `${GREEN}55`
     : '#1e293b';
 
-  const bgColor = isActiveStep || isHighlighted
+  const bgColor = isActiveStep || isHighlighted || isLayerFocused
     ? `${GREEN}12`
     : hovered
     ? `${GREEN}08`
@@ -53,6 +60,8 @@ function ServiceNodeComponent({ data }: NodeProps) {
 
   const glowFilter = isActiveStep
     ? `drop-shadow(0 0 14px ${GREEN}) drop-shadow(0 0 28px ${GREEN}80)`
+    : isLayerFocused
+    ? `drop-shadow(0 0 12px ${GREEN}90) drop-shadow(0 0 4px ${GREEN}60)`
     : isHighlighted
     ? `drop-shadow(0 0 8px ${GREEN}70)`
     : hovered
@@ -62,11 +71,15 @@ function ServiceNodeComponent({ data }: NodeProps) {
   return (
     <motion.div
       className="relative select-none"
-      style={{ width: NODE_W + 4, height: NODE_H + 4, cursor: 'pointer' }}
+      style={{ width: NODE_W + 4, height: NODE_H + 4, cursor: 'pointer', willChange: 'transform, filter, opacity' }}
       animate={{
-        opacity: isDimmed ? 0.40 : 1,
-        filter:  isDimmed ? 'grayscale(0.6) brightness(0.55)' : glowFilter,
-        scale:   hovered && !isDimmed ? 1.06 : 1,
+        opacity: isDimmed ? 0.40 : isLayerDimmed ? 0.10 : 1,
+        filter:  isDimmed
+          ? 'grayscale(0.6) brightness(0.55)'
+          : isLayerDimmed
+          ? 'grayscale(1) brightness(0.2)'
+          : glowFilter,
+        scale: hovered && !isDimmed && !isLayerDimmed ? 1.06 : isLayerFocused && !hovered ? 1.04 : 1,
       }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
       onMouseEnter={(e) => {
@@ -167,4 +180,16 @@ function ServiceNodeComponent({ data }: NodeProps) {
   );
 }
 
-export default memo(ServiceNodeComponent);
+export default memo(ServiceNodeComponent, (prev, next) => {
+  const pd = prev.data as ServiceNodeData;
+  const nd = next.data as ServiceNodeData;
+  return (
+    pd.service.id    === nd.service.id    &&
+    pd.isHighlighted === nd.isHighlighted &&
+    pd.isDimmed      === nd.isDimmed      &&
+    pd.isActiveStep  === nd.isActiveStep  &&
+    pd.stepNumber    === nd.stepNumber    &&
+    pd.isExploreMode === nd.isExploreMode &&
+    pd.focusLayer    === nd.focusLayer
+  );
+});

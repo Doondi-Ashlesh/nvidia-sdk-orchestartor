@@ -73,6 +73,8 @@ export type ServiceNodeData = {
   isDimmed: boolean;
   isActiveStep: boolean;
   isExploreMode: boolean;
+  /** Which layer header is currently hovered — drives dim/highlight effect */
+  focusLayer?: Layer | null;
   onHover: (service: Service | null) => void;
   /** Mouse-move callback used to track cursor position for the hover tooltip (non-explore modes) */
   onMouseMove?: (service: Service, x: number, y: number) => void;
