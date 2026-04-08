@@ -6,6 +6,20 @@ export type Layer =
   | 'serving'
   | 'enterprise';
 
+/** An officially documented NVIDIA agent skill from the nvidia/skills catalog */
+export interface Skill {
+  name: string;        // kebab-case identifier from SKILL.md
+  version: string;     // semver string from SKILL.md
+  description: string; // one-sentence description from SKILL.md
+  repoUrl: string;     // direct link to SKILL.md on GitHub
+}
+
+/** Skills grouped by the service they belong to — used by the retriever */
+export interface ServiceSkills {
+  serviceId: string;
+  skills: Skill[];
+}
+
 export type Service = {
   id: string;
   name: string;
@@ -16,12 +30,18 @@ export type Service = {
   tags: string[];
   /** IDs of services this officially connects to (directed: this → other) */
   connections: string[];
+  /** Officially documented agent skills for this service (from nvidia/skills catalog) */
+  skills?: Skill[];
 };
 
 export type WorkflowStep = {
   serviceId: string;
   role: string;
   action: string;
+  /** Data or artifacts this step receives as input (ML pipeline planner) */
+  inputs?: string[];
+  /** Data or artifacts this step produces as output (ML pipeline planner) */
+  outputs?: string[];
 };
 
 export type Workflow = {
@@ -57,10 +77,10 @@ export const LAYER_LABELS: Record<Layer, string> = {
 
 export const LAYER_SUBLABELS: Record<Layer, string> = {
   access:     'Entry points & GPU cloud',
-  sdk:        'CUDA stack & inference engines',
+  sdk:        'CUDA stack & GPU primitives',
   framework:  'Build, train & customize',
   agent:      'Orchestrate & deploy agents',
-  serving:    'Deploy & serve models',
+  serving:    'Optimize, compile & serve models',
   enterprise: 'Production & compliance',
 };
 

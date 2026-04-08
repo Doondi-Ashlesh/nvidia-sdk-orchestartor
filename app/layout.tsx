@@ -14,7 +14,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'NVIDIA AI Ecosystem Visualizer',
   description:
-    'Interactive map of the official NVIDIA AI stack — understand how every service connects and generate your custom path with Groq AI.',
+    'Interactive map of the official NVIDIA AI stack — understand how every service connects and generate your custom path with Nemotron AI.',
 };
 
 export default function RootLayout({

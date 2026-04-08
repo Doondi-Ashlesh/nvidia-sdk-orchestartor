@@ -42,26 +42,42 @@ const LAYER_X: Record<string, number> = {
 };
 
 const NODE_Y: Record<string, number> = {
+  // ACCESS — entry points (low-barrier playground → GPU dev → catalog → cloud)
   'build-nvidia':        60,
   'brev':               200,
   'ngc':                340,
   'dgx-cloud':          480,
+
+  // SDK — GPU foundation stack (primitives → deep learning → inference opt)
   'cuda':                60,
   'cudnn':              200,
   'tensorrt':           340,
-  'tensorrt-llm':       480,
-  'nemo':                10,
-  'nemo-curator':       145,
-  'nemo-guardrails':    280,
-  'nemo-retriever':     415,
-  'ai-workbench':       550,
-  'rapids':             685,
-  'nemotron':           175,
-  'nemo-agent-toolkit': 330,
-  'blueprints':         485,
-  'triton':             240,
-  'nim':                390,
-  'ai-enterprise':      315,
+
+  // FRAMEWORK — data & training pipeline (dev env → data → pre-train → fine-tune → eval → safety → RAG)
+  'ai-workbench':        60,
+  'rapids':             195,
+  'nemo-curator':       330,
+  'megatron-lm':        465,
+  'nemo':               600,
+  'nemo-evaluator':     735,
+  'nemo-guardrails':    870,
+  'nemo-retriever':    1005,
+
+  // AGENT — agent dev stack (base model → RL alignment → toolkit → blueprints)
+  'nemotron':            60,
+  'nemo-gym':           205,
+  'nemo-agent-toolkit': 350,
+  'blueprints':         495,
+
+  // SERVING — inference pipeline (optimize → compile → serve → deploy as microservice)
+  'model-optimizer':     60,
+  'tensorrt-llm':       210,
+  'triton':             360,
+  'nim':                510,
+
+  // ENTERPRISE
+  'ai-enterprise':       60,
+  'cuopt':              210,
 };
 
 const NODE_TYPES: NodeTypes = { serviceNode: ServiceNode };

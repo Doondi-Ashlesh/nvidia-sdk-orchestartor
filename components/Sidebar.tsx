@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, ChevronRight, ChevronLeft, X, ExternalLink,
-  Compass, Loader2, AlertCircle, Send,
+  Compass, Loader2, AlertCircle, Send, Brain,
 } from 'lucide-react';
 import {
   LAYER_COLORS,
@@ -37,6 +37,61 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+// ── Reasoning panel ───────────────────────────────────────────────────────────
+
+const REASONING_SECTIONS = [
+  { key: '▸ GOAL',       label: 'Goal Analysis' },
+  { key: '▸ CANDIDATES', label: 'Service Candidates' },
+  { key: '▸ EXCLUDED',   label: 'Exclusions Applied' },
+  { key: '▸ SEQUENCE',   label: 'Path Rationale' },
+];
+
+function parseReasoning(raw: string): Array<{ label: string; body: string }> | null {
+  const sections: Array<{ label: string; body: string }> = [];
+  for (let i = 0; i < REASONING_SECTIONS.length; i++) {
+    const { key, label } = REASONING_SECTIONS[i];
+    const nextKey = REASONING_SECTIONS[i + 1]?.key;
+    const start = raw.indexOf(key);
+    if (start === -1) continue;
+    const end   = nextKey ? raw.indexOf(nextKey, start + key.length) : raw.length;
+    const body  = raw.slice(start + key.length, end === -1 ? raw.length : end)
+      .replace(/^[\s:]+/, '')
+      .trim();
+    if (body) sections.push({ label, body });
+  }
+  return sections.length >= 2 ? sections : null;
+}
+
+function ReasoningPanel({ reasoning }: { reasoning: string }) {
+  const sections = parseReasoning(reasoning);
+
+  return (
+    <div
+      className="rounded-lg p-3 space-y-3 max-h-72 overflow-y-auto"
+      style={{ background: '#050d00', border: '1px solid #76b90020' }}
+    >
+      {sections ? (
+        sections.map(({ label, body }) => (
+          <div key={label}>
+            <p className="text-[9px] font-bold uppercase tracking-widest mb-1"
+              style={{ color: '#76b900' }}>
+              {label}
+            </p>
+            <p className="text-[11px] text-slate-300 leading-relaxed">{body}</p>
+          </div>
+        ))
+      ) : (
+        // Fallback: render raw reasoning as clean paragraphs
+        reasoning.split('\n').filter(l => l.trim()).map((line, i) => (
+          <p key={i} className="text-[11px] text-slate-300 leading-relaxed">{line}</p>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function Sidebar({
   mode,
   activeWorkflow,
@@ -50,9 +105,12 @@ export default function Sidebar({
   isOpen = false,
   onClose,
 }: SidebarProps) {
-  const [goal, setGoal]       = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [goal, setGoal]           = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [reasoning, setReasoning] = useState<string | null>(null);
+  const [showReasoning, setShowReasoning] = useState(false);
   const [unverified, setUnverified] = useState<{
     message: string;
     suggestedServices: Array<{ id: string; name: string; officialUrl: string }>;
@@ -75,12 +133,14 @@ export default function Sidebar({
       });
 
       const data = (await res.json()) as {
-        verified?:         boolean;
-        goal?:             string;
-        steps?:            WorkflowStep[];
-        message?:          string;
+        verified?:          boolean;
+        goal?:              string;
+        steps?:             WorkflowStep[];
+        message?:           string;
         suggestedServices?: Array<{ id: string; name: string; officialUrl: string }>;
-        error?:            string;
+        error?:             string;
+        latencyMs?:         number;
+        reasoning?:         string | null;
       };
 
       // Hard API / network error
@@ -112,6 +172,9 @@ export default function Sidebar({
         steps:       data.steps ?? [],
       };
 
+      setLatencyMs(data.latencyMs ?? null);
+      setReasoning(data.reasoning ?? null);
+      setShowReasoning(false);
       onSelectWorkflow(wf);
       setGoal('');
     } catch {
@@ -144,7 +207,7 @@ export default function Sidebar({
           </span>
         </div>
         <h1 className="text-white font-bold text-base leading-snug">AI Ecosystem</h1>
-        <p className="text-sm text-slate-500 mt-0.5">18 services · 6 layers · official docs</p>
+        <p className="text-sm text-slate-500 mt-0.5">25 services · 6 layers · official docs</p>
       </div>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
@@ -173,7 +236,7 @@ export default function Sidebar({
                   What are you trying to build?
                 </p>
                 <p className="text-sm text-slate-600 mt-1">
-                  Describe your goal — Groq AI will map the right NVIDIA services.
+                  Describe your goal — Nemotron will map the right NVIDIA services.
                 </p>
               </div>
 
@@ -295,7 +358,7 @@ export default function Sidebar({
                     />
                   ))}
                   <p className="text-sm text-[#76b900]/60 font-mono mt-2">
-                    Groq is generating your path…
+                    Nemotron is generating your path…
                   </p>
                 </motion.div>
               )}
@@ -369,13 +432,58 @@ export default function Sidebar({
                     transition={{ duration: 0.4 }}
                   />
                 </div>
-                <p className="text-sm text-slate-500 mt-1.5">
-                  Step {activeStepIndex + 1} of {activeWorkflow.steps.length}
-                </p>
+                {/* Latency inline with step counter */}
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-sm text-slate-500">
+                    Step {activeStepIndex + 1} of {activeWorkflow.steps.length}
+                  </p>
+                  {latencyMs && (
+                    <span className="text-[10px] font-mono text-slate-600">
+                      {latencyMs}ms · Nemotron 49B
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Steps list */}
+              {/* Steps list — reasoning toggle lives inside so it scrolls with steps */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5 min-h-0">
+
+                {/* Model Reasoning toggle (inside scroll area) */}
+                {reasoning && (
+                  <div className="space-y-1 mb-2">
+                    <button
+                      onClick={() => setShowReasoning((v) => !v)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all"
+                      style={{
+                        background: showReasoning ? '#76b90018' : 'transparent',
+                        border:     '1px solid #76b90030',
+                      }}
+                    >
+                      <Brain size={10} style={{ color: '#76b900' }} className="shrink-0" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-[#76b900]">
+                        Model Reasoning
+                      </span>
+                      <ChevronRight
+                        size={10}
+                        style={{ color: '#76b90080', marginLeft: 'auto' }}
+                        className={`shrink-0 transition-transform ${showReasoning ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+                    <AnimatePresence>
+                      {showReasoning && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <ReasoningPanel reasoning={reasoning} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
                 {activeWorkflow.steps.map((step, idx) => {
                   const isActive    = idx === activeStepIndex;
                   const isCompleted = idx < activeStepIndex;
@@ -416,9 +524,19 @@ export default function Sidebar({
                         </div>
                       </div>
                       {isActive && (
-                        <p className="text-slate-300 text-sm leading-relaxed mt-2.5 pl-7 break-words">
-                          {step.action}
-                        </p>
+                        <>
+                          <p className="text-slate-300 text-sm leading-relaxed mt-2.5 pl-7 break-words">
+                            {step.action}
+                          </p>
+                          {step.outputs && step.outputs.length > 0 && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono mt-1.5 pl-7 flex-wrap">
+                              <span style={{ color: '#76b90060' }}>→</span>
+                              {step.outputs.map((o) => (
+                                <span key={o} className="px-1.5 py-0.5 rounded" style={{ background: '#76b90015' }}>{o}</span>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </button>
                   );
@@ -523,6 +641,40 @@ export default function Sidebar({
                       ))}
                     </div>
 
+                    {hoveredService.skills && hoveredService.skills.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold">
+                          Agent Skills ({hoveredService.skills.length})
+                        </p>
+                        <div className="space-y-1.5">
+                          {hoveredService.skills.map((skill) => (
+                            <div
+                              key={skill.name}
+                              className="rounded-lg border px-2.5 py-2"
+                              style={{ borderColor: '#76b90025', background: '#76b90008' }}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-mono text-[#76b900] font-semibold truncate">
+                                  {skill.name}
+                                </span>
+                                <a
+                                  href={skill.repoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0"
+                                >
+                                  <ExternalLink size={9} style={{ color: '#76b90060' }} />
+                                </a>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                {skill.description}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   </motion.div>
                 ) : (
                   <motion.div
@@ -551,6 +703,18 @@ export default function Sidebar({
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <div className="px-6 py-4 border-t border-[#1a1a1a] shrink-0">
+        <div
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full mb-3"
+          style={{ background: '#76b90012', border: '1px solid #76b90030' }}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: '#76b900', boxShadow: '0 0 4px #76b900' }}
+          />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#76b900]">
+            Powered by Nemotron
+          </span>
+        </div>
         <p className="text-sm text-slate-700 leading-relaxed">
           All data sourced from official NVIDIA documentation.
           <br />

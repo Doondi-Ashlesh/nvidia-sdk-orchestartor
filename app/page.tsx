@@ -127,7 +127,7 @@ export default function Home() {
             {mode === 'initial' && (
               <p className="text-slate-500 text-sm truncate">
                 <span className="text-slate-300 font-semibold">AI Ecosystem Visualizer</span>
-                <span className="hidden lg:inline text-slate-600"> — Describe your goal or explore all 18 services</span>
+                <span className="hidden lg:inline text-slate-600"> — Describe your goal or explore all 25 services</span>
               </p>
             )}
             {mode === 'explore' && (

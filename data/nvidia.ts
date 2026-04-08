@@ -7,6 +7,12 @@
  */
 
 import type { Service, Workflow } from '@/types/ecosystem';
+import { STATIC_SKILLS } from '@/data/skills-catalog';
+
+/** Helper — pull skills for a given serviceId from the static catalog */
+function skillsFor(serviceId: string) {
+  return STATIC_SKILLS.find(s => s.serviceId === serviceId)?.skills ?? [];
+}
 
 // ---------------------------------------------------------------------------
 // SERVICES
@@ -111,9 +117,10 @@ export const NVIDIA_SERVICES: Service[] = [
     fullDescription:
       'A component of the TensorRT ecosystem specifically optimized for large language model inference. Powers NVIDIA NIM containerized deployments with advanced optimizations tailored to transformer architectures, enabling high-throughput LLM serving at scale.',
     officialUrl: 'https://developer.nvidia.com/tensorrt-llm',
-    layer: 'sdk',
+    layer: 'serving',
     tags: ['LLM', 'inference', 'transformer', 'optimization'],
     connections: ['nim', 'triton'],
+    skills: skillsFor('tensorrt-llm'),
   },
 
   // ── FRAMEWORK / TOOLING ───────────────────────────────────────────────────
@@ -125,7 +132,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: docs.nvidia.com/nemo-framework and nvidia.com/en-us/ai-data-science/nemo/
     fullDescription:
       'A comprehensive toolkit for managing the AI agent lifecycle. Scalable and cloud-native generative AI framework built for researchers and developers working on LLMs, Multimodal, and Speech AI. Supports custom LLM development, fine-tuning, RAG applications, agentic AI systems, synthetic data generation, and humanoid robot reasoning.',
-    officialUrl: 'https://developer.nvidia.com/nemo-framework',
+    officialUrl: 'https://developer.nvidia.com/nemo',
     layer: 'framework',
     tags: ['LLM', 'fine-tuning', 'speech', 'multimodal', 'agentic AI'],
     connections: ['nim', 'triton', 'nemo-agent-toolkit'],
@@ -180,7 +187,7 @@ export const NVIDIA_SERVICES: Service[] = [
   },
   {
     id: 'rapids',
-    name: 'RAPIDS',
+    name: 'NVIDIA RAPIDS',
     shortDescription: 'End-to-end GPU-accelerated data science with PyData APIs.',
     // Source: rapids.ai and official NVIDIA RAPIDS docs
     fullDescription:
@@ -224,10 +231,11 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/ai-blueprints
     fullDescription:
       'Reference applications for generative AI use cases combining partner microservices, AI agents, sample code, customization guides, and deployment documentation. Covers digital customer service avatars, video analytics agents, PDF-to-podcast, network operations, cybersecurity threat detection, manufacturing, and logistics.',
-    officialUrl: 'https://docs.nvidia.com/vss/latest/index.html',
+    officialUrl: 'https://catalog.ngc.nvidia.com/blueprints',
     layer: 'agent',
     tags: ['reference apps', 'agents', 'production', 'customer service', 'video analytics'],
     connections: ['nim', 'ai-enterprise'],
+    skills: skillsFor('blueprints'),
   },
 
   // ── SERVING ───────────────────────────────────────────────────────────────
@@ -239,7 +247,7 @@ export const NVIDIA_SERVICES: Service[] = [
     // Source: developer.nvidia.com/triton-inference-server
     fullDescription:
       'NVIDIA Dynamo is an open-source distributed inference framework designed for high-throughput LLM serving across multi-GPU and multi-node deployments, built on NVIDIA Triton Inference Server. Triton supports all major backends — TensorRT™, PyTorch, TensorFlow, ONNX, OpenVINO, Python, and RAPIDS FIL — with dynamic batching, concurrent model execution, KV cache, model ensembles, Kubernetes integration, and Prometheus metrics. Together, Dynamo and Triton form NVIDIA\'s production serving stack.',
-    officialUrl: 'https://developer.nvidia.com/triton-inference-server',
+    officialUrl: 'https://developer.nvidia.com/dynamo',
     layer: 'serving',
     tags: ['inference server', 'model serving', 'Kubernetes', 'LLM', 'multi-framework'],
     connections: ['ai-enterprise'],
@@ -269,7 +277,79 @@ export const NVIDIA_SERVICES: Service[] = [
     officialUrl: 'https://www.nvidia.com/en-us/data-center/products/ai-enterprise/',
     layer: 'enterprise',
     tags: ['enterprise', 'SLA', 'production', 'security', 'support'],
-    connections: [],
+    connections: ['cuopt'],
+  },
+
+  // ── NEW SERVICES (v2 — nvidia/skills catalog expansion) ──────────────────
+
+  {
+    id: 'model-optimizer',
+    name: 'NVIDIA Model Optimizer',
+    shortDescription: 'Post-training compression — quantization, sparsity, and distillation.',
+    // Source: https://github.com/NVIDIA/ModelOpt
+    fullDescription:
+      'NVIDIA Model Optimizer (ModelOpt) is a model compression library for post-training quantization (INT8, FP8, INT4 AWQ/GPTQ), structured/unstructured sparsity, and knowledge distillation. Works with PyTorch and supports export to TensorRT-LLM, ONNX, and TensorRT engines. Enables significant memory footprint reduction and inference acceleration without retraining from scratch.',
+    officialUrl: 'https://github.com/NVIDIA/Model-Optimizer',
+    layer: 'serving',
+    tags: ['quantization', 'sparsity', 'distillation', 'compression', 'INT8', 'FP8', 'INT4'],
+    connections: ['tensorrt-llm', 'nim'],
+    skills: skillsFor('model-optimizer'),
+  },
+
+  {
+    id: 'nemo-evaluator',
+    name: 'NVIDIA NeMo Evaluator',
+    shortDescription: 'LLM evaluation and benchmarking — automated metrics, MLflow integration.',
+    // Source: https://github.com/NVIDIA-NeMo/Evaluator
+    fullDescription:
+      'NVIDIA NeMo Evaluator is a microservice for automated LLM evaluation and benchmarking. Supports standard benchmarks (MMLU, HellaSwag, TruthfulQA) and custom datasets. Integrates with MLflow for experiment tracking and result comparison across model versions. Deployed via the NeMo Evaluator Launcher (NEL) with configurable endpoints and GPU resources.',
+    officialUrl: 'https://github.com/NVIDIA-NeMo/Evaluator',
+    layer: 'framework',
+    tags: ['evaluation', 'benchmarking', 'LLM', 'metrics', 'MLflow', 'MMLU'],
+    connections: ['nemo', 'nim'],
+    skills: skillsFor('nemo-evaluator'),
+  },
+
+  {
+    id: 'nemo-gym',
+    name: 'NVIDIA NeMo Gym',
+    shortDescription: 'RL training environments — RLHF and RLAIF alignment for LLMs.',
+    // Source: https://github.com/NVIDIA-NeMo/Gym
+    fullDescription:
+      'NVIDIA NeMo Gym provides reinforcement learning training environments for post-training alignment of large language models via RLHF (Reinforcement Learning from Human Feedback) and RLAIF (RL from AI Feedback). Implements PPO, GRPO, and reward model training on top of the NeMo framework. Enables instruction-following improvement and toxicity reduction after supervised fine-tuning.',
+    officialUrl: 'https://github.com/NVIDIA-NeMo/Gym',
+    layer: 'agent',
+    tags: ['RLHF', 'RLAIF', 'alignment', 'reinforcement learning', 'PPO', 'reward model'],
+    connections: ['nemo', 'nemo-agent-toolkit'],
+    skills: skillsFor('nemo-gym'),
+  },
+
+  {
+    id: 'megatron-lm',
+    name: 'Megatron-LM',
+    shortDescription: 'Distributed pre-training — tensor, pipeline, and sequence parallelism.',
+    // Source: https://github.com/NVIDIA/Megatron-LM
+    fullDescription:
+      'NVIDIA Megatron-LM is a distributed large-scale neural language model training framework supporting tensor parallelism, pipeline parallelism, sequence parallelism, and expert parallelism for Mixture-of-Experts models. Used for pre-training and continued pre-training of foundation models at scale. Integrates with NeMo and supports NVIDIA\'s own Nemotron model family training.',
+    officialUrl: 'https://github.com/NVIDIA/Megatron-LM',
+    layer: 'framework',
+    tags: ['pre-training', 'distributed training', 'tensor parallelism', 'pipeline parallelism', 'foundation model'],
+    connections: ['nemo', 'nemo-curator', 'brev'],
+    skills: skillsFor('megatron-lm'),
+  },
+
+  {
+    id: 'cuopt',
+    name: 'NVIDIA cuOpt',
+    shortDescription: 'GPU-accelerated combinatorial optimization — routing, LP, MILP, QP.',
+    // Source: https://github.com/NVIDIA/cuOpt
+    fullDescription:
+      'NVIDIA cuOpt is a GPU-accelerated optimization engine for combinatorial and mathematical programming problems. Solves vehicle routing problems (VRP, CVRP, VRPTW, PDPTW), linear programming (LP), mixed-integer linear programming (MILP), and quadratic programming (QP) problems at scale. Available as a Python and C API, and as a REST microservice. Used in logistics, supply chain, robotics, and network optimization.',
+    officialUrl: 'https://www.nvidia.com/en-us/ai-data-science/products/cuopt/',
+    layer: 'enterprise',
+    tags: ['optimization', 'vehicle routing', 'LP', 'MILP', 'QP', 'logistics', 'supply chain'],
+    connections: ['ai-enterprise'],
+    skills: skillsFor('cuopt'),
   },
 ];
 
@@ -482,6 +562,63 @@ export const NVIDIA_WORKFLOWS: Workflow[] = [
       },
     ],
   },
+
+  {
+    id: 'full-llm-pipeline',
+    goal: 'Build, fine-tune, optimize and deploy a production LLM',
+    description: 'End-to-end: GPU provisioning → data curation → training → RL alignment → quantization → inference optimization → NIM deployment.',
+    difficulty: 'advanced',
+    steps: [
+      {
+        serviceId: 'brev',
+        role: 'GPU Provisioning',
+        action: 'Provision GPU instances on NVIDIA Brev (H100/A100 Launchable) with NeMo pre-installed and CUDA drivers configured for training workloads.',
+        outputs: ['gpu_instance', 'cuda_environment'],
+      },
+      {
+        serviceId: 'nemo-curator',
+        role: 'Data Preparation',
+        action: 'Curate and filter training data using NeMo Curator quality filters, deduplication, and domain classification pipelines.',
+        inputs: ['raw_dataset'],
+        outputs: ['curated_training_dataset'],
+      },
+      {
+        serviceId: 'nemo',
+        role: 'Model Fine-Tuning',
+        action: 'Fine-tune the base model using NeMo training recipes with PEFT (LoRA/SFT) on the curated dataset. Save checkpoints at regular intervals.',
+        inputs: ['curated_training_dataset', 'base_model_checkpoint'],
+        outputs: ['fine_tuned_checkpoint'],
+      },
+      {
+        serviceId: 'nemo-gym',
+        role: 'RL Alignment',
+        action: 'Run RLHF/RLAIF alignment using NeMo Gym to improve instruction-following, helpfulness, and reduce toxicity via PPO or GRPO training.',
+        inputs: ['fine_tuned_checkpoint'],
+        outputs: ['aligned_model_checkpoint'],
+      },
+      {
+        serviceId: 'model-optimizer',
+        role: 'Quantization & Compression',
+        action: 'Apply post-training quantization (INT8/FP8) and sparsity using NVIDIA Model Optimizer to reduce model memory footprint by 2-4×.',
+        inputs: ['aligned_model_checkpoint'],
+        outputs: ['quantized_model'],
+      },
+      {
+        serviceId: 'tensorrt-llm',
+        role: 'Inference Optimization',
+        action: 'Compile the quantized model into a TensorRT-LLM engine with kernel fusion and batching optimizations for maximum GPU throughput.',
+        inputs: ['quantized_model'],
+        outputs: ['tensorrt_engine'],
+      },
+      {
+        serviceId: 'nim',
+        role: 'Production Deployment',
+        action: 'Package and deploy the TensorRT-LLM engine as an NVIDIA NIM microservice with an OpenAI-compatible API, health endpoints, and auto-scaling support.',
+        inputs: ['tensorrt_engine'],
+        outputs: ['nim_endpoint'],
+      },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -489,12 +626,13 @@ export const NVIDIA_WORKFLOWS: Workflow[] = [
 // ---------------------------------------------------------------------------
 
 export const WORKFLOW_KEYWORDS: Record<string, string[]> = {
-  'try-instantly':   ['try', 'test', 'demo', 'quick', 'api', 'model', 'explore', 'play'],
-  'gpu-dev-env':     ['gpu', 'setup', 'environment', 'start', 'begin', 'dev', 'machine', 'configure'],
-  'fine-tune-llm':   ['fine', 'tune', 'finetune', 'train', 'custom', 'llm', 'adapt', 'domain'],
-  'deploy-inference':['deploy', 'inference', 'scale', 'production', 'serve', 'hosting', 'endpoint'],
-  'build-rag':       ['rag', 'retrieval', 'search', 'knowledge', 'document', 'embedding', 'vector'],
-  'build-agent':     ['agent', 'agentic', 'autonomous', 'copilot', 'multi', 'workflow', 'orchestrate', 'nemo agent'],
+  'try-instantly':    ['try', 'test', 'demo', 'quick', 'api', 'model', 'explore', 'play'],
+  'gpu-dev-env':      ['gpu', 'setup', 'environment', 'start', 'begin', 'dev', 'machine', 'configure'],
+  'fine-tune-llm':    ['fine', 'tune', 'finetune', 'train', 'custom', 'llm', 'adapt', 'domain'],
+  'deploy-inference': ['deploy', 'inference', 'scale', 'production', 'serve', 'hosting', 'endpoint'],
+  'build-rag':        ['rag', 'retrieval', 'search', 'knowledge', 'document', 'embedding', 'vector'],
+  'build-agent':      ['agent', 'agentic', 'autonomous', 'copilot', 'multi', 'workflow', 'orchestrate', 'nemo agent'],
+  'full-llm-pipeline':['pipeline', 'full', 'end-to-end', 'complete', 'production llm', 'build deploy', 'train deploy', 'entire', 'whole stack'],
 };
 
 export function matchWorkflows(query: string, workflows: Workflow[]): Workflow[] {
