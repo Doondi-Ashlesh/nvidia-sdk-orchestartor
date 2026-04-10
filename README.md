@@ -1,4 +1,4 @@
-# NVIDIA AI Ecosystem Visualizer
+# NVIDIA SDK ORCHESTRATOR
 
 > An interactive graph that maps NVIDIA's entire AI product stack — describe your goal in plain English and Groq AI generates the exact step-by-step path through the ecosystem. (New system updates underway)
 
