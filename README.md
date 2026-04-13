@@ -50,9 +50,6 @@ Click any node to load its full official description, tags, and connections in t
 
 ---
 
-### Demo Video
-
-https://github.com/Doondi-Ashlesh/nvidia-ecosystem-visualizer/raw/master/media/Demo.mp4
 
 ---
 
