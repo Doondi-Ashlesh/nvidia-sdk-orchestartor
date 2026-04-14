@@ -182,6 +182,4 @@ Every entry in `data/nvidia.ts` includes a source comment linking to the exact o
 
 ---
 
-## License
 
-MIT © [Doondi Ashlesh](https://github.com/Doondi-Ashlesh)
