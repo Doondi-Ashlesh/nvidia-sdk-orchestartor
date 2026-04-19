@@ -21,7 +21,11 @@ import type { WorkflowStep, GoalSpec } from '@/types/ecosystem';
 import { getRelevantPatterns } from '@/lib/notebook-patterns';
 import { buildNotebookJson, toSourceLines } from '@/lib/workflow-notebook';
 import type { NotebookCell } from '@/lib/workflow-notebook';
-import { buildArchitecture } from '@/lib/scaffolding-templates';
+import {
+  buildPRD,
+  buildArchitecture,
+  buildFeatureSpecs,
+} from '@/lib/scaffolding-templates';
 import { completeChat } from '@/lib/llm-client';
 import {
   validateNotebookAST,
@@ -149,66 +153,56 @@ function extractJsonArray(text: string): unknown[] {
 }
 
 // ── Scaffolding context builder ─────────────────────────────────────────────
+// Feeds the full scaffolding stack (PRD, per-feature specs, architecture) into
+// the notebook prompt. Previously only a minimal hand-rolled summary + the
+// data-flow diagram were passed; this meant the generator lacked:
+//   - numeric performance targets and compliance rationale (PRD)
+//   - per-step spec telling each cell what its inputs, outputs, and role are
+//     (feature specs)
+// so it had to re-derive those from the raw steps JSON.
+//
+// Token cost: ~11KB (~2.8K tokens) for a typical 9-step path. Model's
+// response budget is 32K max_tokens; context window is far larger. This is a
+// trivial addition for a large quality lift.
+//
+// We deliberately EXCLUDE buildClaudeMD and buildAgentsMD from this prompt —
+// those are instructions for a different agent (Claude Code using the
+// notebook later) and including them confuses the notebook generator about
+// its own role.
 
 function buildScaffoldingContext(
   goalSpec: GoalSpec,
   steps: WorkflowStep[],
 ): string {
-  const lines: string[] = [];
-  lines.push(
-    `PROJECT SPECIFICATION (use this as the plan the notebook implements):`,
+  const parts: string[] = [];
+
+  // PRD — enriched goal + measurable targets + compliance + inferred reqs.
+  parts.push('=== PROJECT REQUIREMENTS (implement this) ===');
+  parts.push(buildPRD(goalSpec));
+  parts.push('');
+
+  // Architecture — data flow diagram. Keeps the model aligned on what each
+  // step produces and consumes.
+  parts.push('=== ARCHITECTURE ===');
+  parts.push(buildArchitecture(steps));
+  parts.push('');
+
+  // Per-feature specs. Each becomes a concrete contract for one code cell:
+  // role, action, inputs, outputs. This is the single highest-leverage
+  // addition — the notebook cell for step N should implement feature N's
+  // contract, not improvise.
+  parts.push('=== PER-STEP SPECIFICATIONS ===');
+  parts.push(
+    'Each step below is a contract for one section of the notebook. The cell(s) for that step must honour the declared inputs/outputs and produce the described behaviour. Do not skip or rearrange steps.',
   );
-  lines.push('');
-  lines.push(`Domain: ${goalSpec.domain}`);
-  lines.push(`Use case: ${goalSpec.use_case_type}`);
-  lines.push('');
-  lines.push(`Summary: ${goalSpec.summary}`);
-  lines.push('');
-
-  if (goalSpec.performance_goals.length > 0) {
-    lines.push(
-      `Performance targets (the notebook should measure and print these):`,
-    );
-    for (const p of goalSpec.performance_goals) {
-      lines.push(`  - ${p.metric}: ${p.target}`);
-    }
-    lines.push('');
+  parts.push('');
+  const features = buildFeatureSpecs(steps);
+  for (const f of features) {
+    parts.push(f.content);
+    parts.push('');
   }
 
-  if (goalSpec.constraints.compliance.length > 0) {
-    lines.push(
-      `Compliance: ${goalSpec.constraints.compliance.join(', ')}`,
-    );
-    lines.push(
-      `  — code must reflect these (de-identification, audit logging, guardrails)`,
-    );
-    lines.push('');
-  }
-
-  if (goalSpec.constraints.hardware) {
-    lines.push(`Hardware target: ${goalSpec.constraints.hardware}`);
-    lines.push('');
-  }
-
-  if (goalSpec.inferred_requirements.length > 0) {
-    lines.push(`Inferred requirements (notebook should address these):`);
-    for (const r of goalSpec.inferred_requirements.slice(0, 5)) {
-      lines.push(`  - ${r.requirement}`);
-    }
-    if (goalSpec.inferred_requirements.length > 5) {
-      lines.push(
-        `  - (+${goalSpec.inferred_requirements.length - 5} more)`,
-      );
-    }
-    lines.push('');
-  }
-
-  lines.push(`DATA FLOW (architecture):`);
-  lines.push('```');
-  lines.push(buildArchitecture(steps).split('```')[1]?.trim() ?? '');
-  lines.push('```');
-
-  return lines.join('\n');
+  return parts.join('\n');
 }
 
 // ── Provenance header ───────────────────────────────────────────────────────
