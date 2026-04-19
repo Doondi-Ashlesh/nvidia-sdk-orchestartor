@@ -32,6 +32,7 @@ import {
   validateNarrative,
   buildNarrativeRepromptFeedback,
 } from '@/lib/validators/narrative';
+import { extractParseableObjects } from '@/lib/json-repair-nbjson';
 import {
   GenerateNotebookRequestSchema,
   NotebookCellsSchema,
@@ -121,8 +122,25 @@ function extractJsonArray(text: string): unknown[] {
     }
   }
 
+  // Last resort: the LLM emitted malformed JSON (typically dropped opening
+  // quotes on string values under retry pressure). Try partial extraction —
+  // we'd rather ship 15 of 16 cells than return a 502.
+  const partial = extractParseableObjects(text);
+  const goodCells = partial.objects.filter(
+    (o) =>
+      o !== null &&
+      typeof o === 'object' &&
+      'cell_type' in (o as Record<string, unknown>),
+  );
+  if (goodCells.length >= 3) {
+    console.warn(
+      `[generate-notebook] partial extraction: recovered ${goodCells.length} cells, skipped ${partial.malformedCount} malformed`,
+    );
+    return goodCells as unknown[];
+  }
+
   throw new Error(
-    `No valid JSON cell array found in response (length=${text.length}).`,
+    `No valid JSON cell array found in response (length=${text.length}, partial-extract got ${goodCells.length} cells).`,
   );
 }
 
@@ -304,12 +322,16 @@ Output ONLY a JSON array of cells:
     | null = null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
+    // Cap feedback size — observed live: accumulating validator feedback on
+    // retries destabilises Nemotron's JSON emission (it starts writing prose-
+    // shaped output and drops opening quotes on string values).
+    const clippedFeedback = feedback.length > 1500 ? feedback.slice(0, 1500) + '\n…' : feedback;
     const userPrompt =
       attempt === 1
         ? baseUserPrompt
         : baseUserPrompt +
           '\n\nYour previous response had these issues — fix them:\n' +
-          feedback +
+          clippedFeedback +
           '\n\nRESPOND WITH ONLY A JSON ARRAY. No <think> tags. Start with [';
 
     try {
