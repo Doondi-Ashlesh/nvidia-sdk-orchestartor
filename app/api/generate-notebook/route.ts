@@ -70,16 +70,6 @@ function looksLikeCellArray(value: unknown): boolean {
 function extractJsonArray(text: string): unknown[] {
   let cleaned = stripThinkTags(text);
 
-  // Plan/Validate/Emit format: the model emits "### PLAN\n...\n### VALIDATION\n
-  // ...\n### CELLS\n[...]". Slice to just the CELLS section so our scanner
-  // doesn't trip over bracket-like tokens in the plan or validation prose.
-  const cellsMarker = cleaned.search(/^#{1,3}\s*CELLS\s*$/m);
-  if (cellsMarker !== -1) {
-    cleaned = cleaned.slice(cellsMarker);
-    // Drop the "### CELLS" header line itself.
-    cleaned = cleaned.replace(/^#{1,3}\s*CELLS\s*\n?/, '');
-  }
-
   const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch) cleaned = fenceMatch[1].trim();
 
@@ -315,42 +305,8 @@ Rules:
 
 ${INJECTION_GUARD}
 
-═══════════════════════════════════════════════════════════════════════
-OUTPUT FORMAT — THREE SECTIONS IN ONE RESPONSE
-═══════════════════════════════════════════════════════════════════════
-
-You MUST produce your output in three sections, in this exact order:
-
-### PLAN
-List every cell you will write. For each cell, include:
-  - Index (1-based)
-  - Type (markdown | code)
-  - One-line purpose
-  - For code cells only: the exact imports you will use and the key API calls
-    (e.g. "tritonclient.http.InferenceServerClient(url=...)", not "triton client")
-  - For code cells only: variables produced and variables consumed from prior cells
-
-### VALIDATION
-Cross-check every API call in the PLAN against the REAL NVIDIA CODE PATTERNS
-above. For each code cell in the plan, answer:
-  - Are ALL imports and attribute accesses listed in the grounding patterns?
-  - If any are NOT in the grounding, either remove them or replace with a
-    grounded alternative. Explicitly list each change you made.
-  - Cross-cell variable references: every variable a cell consumes must be
-    produced by an earlier cell in the plan. Flag and fix mismatches.
-
-### CELLS
-The final JSON array of cells. Start this section with a line containing
-exactly "### CELLS" on its own line, then a newline, then the opening
-bracket of the JSON array.
-
-FORMAT OF THE CELLS ARRAY (must match exactly):
-[{"cell_type": "markdown", "source": "# Title\\n\\nExplanation..."}, {"cell_type": "code", "source": "import os\\n..."}]
-
-IMPORTANT: the PLAN and VALIDATION sections exist to force you to commit to
-correct API choices BEFORE writing code. Do not skip them. Do not write
-placeholder plans. A rigorous plan produces a notebook that runs; a lazy
-plan produces one that doesn't.`;
+Output ONLY a JSON array of cells:
+[{"cell_type": "markdown", "source": "# Title\\n\\nExplanation..."}, {"cell_type": "code", "source": "import os\\n..."}]`;
 
   const baseUserPrompt = scaffoldingContext
     ? `GOAL:\n${wrapUserBlock(safeGoal)}\n\n${scaffoldingContext}\n\nSERVICE PATH (JSON):\n${JSON.stringify(steps, null, 2)}`

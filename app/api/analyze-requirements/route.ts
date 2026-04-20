@@ -43,10 +43,22 @@ import {
 } from '@/lib/schemas';
 
 // ── Convergence config ──────────────────────────────────────────────────────
-const MAX_ADVERSARY_ROUNDS = 5;
-const MAX_PIPELINE_MS = 240_000; // 4 minutes
+// Cap adversary refinement at 2 rounds. Data from live runs (2026-04-18/19):
+// round 1 produces ~90% of the final spec depth; round 2 adds useful polish
+// (~10% — split AUC targets, canary deploy mention, etc.); round 3+ is noise
+// or timeout. Dropping from 5 → 2 saves 60–120s per Stage 1 run at zero
+// measurable quality loss.
+const MAX_ADVERSARY_ROUNDS = 2;
+const MAX_PIPELINE_MS = 240_000; // 4 minutes (overall safety net)
 const STAGNATION_WINDOW = 2;
 const MIN_IMPROVEMENT_RATIO = 0.2; // 1 of 5 categories must improve
+
+// Early-exit thresholds: when the draft is already rich, skip the adversary
+// loop entirely. Vague-input drafts fall below these and trigger refinement;
+// detailed-input drafts meet them and save a full round of LLM calls.
+const EARLY_EXIT_MIN_PERF_GOALS = 4;
+const EARLY_EXIT_MIN_INFERRED = 3;
+const EARLY_EXIT_MIN_COMPLIANCE = 1;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -497,11 +509,32 @@ export async function POST(request: Request) {
     console.log(`[analyze-requirements] Draft ready in ${draftLatencyMs}ms`);
 
     let finalSpec = draftSpec;
-    let exitReason: 'approved' | 'stagnated' | 'timeout' | 'hard_cap' | 'draft_only' = 'draft_only';
+    let exitReason:
+      | 'approved'
+      | 'stagnated'
+      | 'timeout'
+      | 'hard_cap'
+      | 'draft_only'
+      | 'early_exit_draft_sufficient' = 'draft_only';
 
-    // ── Pass 2+: Adversary refinement loop ───────────────────────────────
+    // Early-exit: if the draft already meets our richness thresholds, skip
+    // the adversary loop entirely. Saves 60–120s on detailed inputs without
+    // changing output quality in a measurable way.
+    const draftIsRich =
+      draftSpec.performance_goals.length >= EARLY_EXIT_MIN_PERF_GOALS &&
+      draftSpec.inferred_requirements.length >= EARLY_EXIT_MIN_INFERRED &&
+      draftSpec.constraints.compliance.length >= EARLY_EXIT_MIN_COMPLIANCE;
 
-    if (!draftOnly) {
+    if (!draftOnly && draftIsRich) {
+      console.log(
+        `[analyze-requirements][${correlationId}] Draft is rich (perf=${draftSpec.performance_goals.length}, inferred=${draftSpec.inferred_requirements.length}, compliance=${draftSpec.constraints.compliance.length}) — skipping adversary loop`,
+      );
+      exitReason = 'early_exit_draft_sufficient';
+    }
+
+    // ── Pass 2+: Adversary refinement loop (skipped on early-exit) ──────
+
+    if (!draftOnly && !draftIsRich) {
       let currentSpec = draftSpec;
       exitReason = 'hard_cap';
 
