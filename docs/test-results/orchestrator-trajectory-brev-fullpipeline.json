@@ -1,0 +1,73 @@
+[
+  {
+    "iteration": 1,
+    "totalCells": 21,
+    "codeOk": 4,
+    "codeError": 5,
+    "rootCauses": 2,
+    "cascades": 3,
+    "rootCauseCells": [
+      3,
+      11
+    ],
+    "notebookPath": "/tmp/fresh.ipynb.iter1.ipynb",
+    "latencyMs": 8656
+  },
+  {
+    "iteration": 2,
+    "totalCells": 21,
+    "codeOk": 4,
+    "codeError": 5,
+    "rootCauses": 2,
+    "cascades": 3,
+    "rootCauseCells": [
+      3,
+      11
+    ],
+    "notebookPath": "/tmp/fresh.ipynb.iter2.ipynb",
+    "latencyMs": 9166
+  },
+  {
+    "iteration": 3,
+    "totalCells": 21,
+    "codeOk": 4,
+    "codeError": 5,
+    "rootCauses": 2,
+    "cascades": 3,
+    "rootCauseCells": [
+      3,
+      11
+    ],
+    "notebookPath": "/tmp/fresh.ipynb.iter3.ipynb",
+    "latencyMs": 9325
+  },
+  {
+    "iteration": 4,
+    "totalCells": 21,
+    "codeOk": 5,
+    "codeError": 4,
+    "rootCauses": 4,
+    "cascades": 0,
+    "rootCauseCells": [
+      11,
+      13,
+      15,
+      19
+    ],
+    "notebookPath": "/tmp/fresh.ipynb.iter4.ipynb",
+    "latencyMs": 9616
+  },
+  {
+    "iteration": 5,
+    "totalCells": 21,
+    "codeOk": 7,
+    "codeError": 2,
+    "rootCauses": 1,
+    "cascades": 1,
+    "rootCauseCells": [
+      13
+    ],
+    "notebookPath": "/tmp/fresh.ipynb.iter5.ipynb",
+    "latencyMs": 9001
+  }
+]
