@@ -1,0 +1,44 @@
+[
+  {
+    "iteration": 1,
+    "totalCells": 26,
+    "codeOk": 0,
+    "codeError": 11,
+    "rootCauses": 1,
+    "cascades": 10,
+    "rootCauseCells": [
+      3
+    ],
+    "notebookPath": "C:/tmp/fraud-original.ipynb.iter1.ipynb",
+    "latencyMs": 20464
+  },
+  {
+    "iteration": 2,
+    "totalCells": 26,
+    "codeOk": 0,
+    "codeError": 11,
+    "rootCauses": 1,
+    "cascades": 10,
+    "rootCauseCells": [
+      3
+    ],
+    "notebookPath": "C:/tmp/fraud-original.ipynb.iter2.ipynb",
+    "latencyMs": 27142
+  },
+  {
+    "iteration": 3,
+    "totalCells": 26,
+    "codeOk": 2,
+    "codeError": 9,
+    "rootCauses": 4,
+    "cascades": 5,
+    "rootCauseCells": [
+      7,
+      11,
+      13,
+      23
+    ],
+    "notebookPath": "C:/tmp/fraud-original.ipynb.iter3.ipynb",
+    "latencyMs": 347062
+  }
+]
