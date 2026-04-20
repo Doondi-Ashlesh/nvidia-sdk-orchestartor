@@ -1,6 +1,6 @@
 # NVIDIA SDK ORCHESTRATOR
 
-> An interactive graph that maps NVIDIA's entire AI product stack — describe your goal in plain English and Groq AI generates the exact step-by-step path through the ecosystem. (New system updates underway)
+> An interactive graph that maps NVIDIA's entire AI product stack — describe your goal in plain English and Nemotron AI generates the exact step-by-step path through the ecosystem. (New system updates underway)
 
 ![Workflow Path](media/Screenshot%202026-04-02%20213152.png)
 
