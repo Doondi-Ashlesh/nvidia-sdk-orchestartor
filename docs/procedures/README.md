@@ -15,6 +15,7 @@ rules every time we touch the pipeline.
 | Adding a new NVIDIA service grounding | [04-grounding-manifest.md](./04-grounding-manifest.md) |
 | Before a demo | [05-demo-checklist.md](./05-demo-checklist.md) |
 | Switching from managed NIM to Brev | [06-brev-swap.md](./06-brev-swap.md) |
+| Running the self-improvement orchestrator on Brev | [07-brev-run.md](./07-brev-run.md) |
 
 ## Invariants across all procedures
 
