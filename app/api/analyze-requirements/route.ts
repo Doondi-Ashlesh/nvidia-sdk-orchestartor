@@ -451,25 +451,19 @@ function normalizeSpec(spec: GoalSpec): GoalSpec {
 export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
   const url = new URL(request.url);
-  // Default behaviour: planner-only single call ("draft"). The adversary
-  // loop is opt-in via `?deep=true`.
+  // Branch `claude/stage1-loop-default`: adversary loop runs by default.
+  // This is the A/B counterpart to `claude/laughing-kilby` (planner-only
+  // default). Both branches ship otherwise-identical Stage 2 + Stage 3
+  // code — only the Stage 1 flag differs so live A/B tests isolate the
+  // effect of the adversary loop on current-codebase output.
   //
-  // WHY — Experiments 7 and 15 (docs/EXPERIMENTATION.md) both found that
-  // the adversary loop regresses Stage 1 output on short / vague inputs:
-  //   - Exp 7 (10 enterprise use cases): plain planner wins 6/10, grounded
-  //     loop wins 2/10
-  //   - Exp 15 (two vague prompts): loop is 9.6× slower, *softens* the
-  //     quantified perf targets (2s → 5s, 90% → 80%), and *drops* real
-  //     compliance frameworks (FDA SaMD, SOC 2, CCPA, PSD2) while adding
-  //     irrelevant ones (SOX for a consumer fraud tool).
-  // The loop earns its keep only on long / detailed inputs where the
-  // planner has enough material that the loop's breadth-adding behavior
-  // is additive rather than substitutive. Those cases should opt in.
+  // Loop is capped at MAX_ADVERSARY_ROUNDS=2 (see constant below) and
+  // obeys early-exit when the draft already meets richness thresholds.
   //
-  // Legacy `?draft=true` and `?fast=true` params remain supported as
-  // no-ops so existing callers keep working.
-  const deepMode = url.searchParams.get('deep') === 'true';
-  const draftOnly = !deepMode;
+  // `?draft=true` and `?fast=true` opt OUT of the loop on this branch
+  // (useful for quick iteration during testing).
+  const draftOnly = url.searchParams.get('draft') === 'true'
+    || url.searchParams.get('fast') === 'true';
 
   let rawBody: unknown;
   try {
