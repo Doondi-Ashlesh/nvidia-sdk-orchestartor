@@ -227,8 +227,8 @@ export default function Home() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Main — full width on mobile (sidebar overlays), offset on sm+ */}
-      <div className="flex-1 flex flex-col min-w-0 sm:ml-72">
+      {/* Main — full width on mobile (sidebar overlays); flex-sibling of sidebar on sm+ */}
+      <div className="flex-1 flex flex-col min-w-0">
 
         {/* Top bar — NVIDIA Developer portal style */}
         <div className="h-14 flex items-center px-4 sm:px-6 border-b border-[#1a1a1a] shrink-0 bg-black gap-3">

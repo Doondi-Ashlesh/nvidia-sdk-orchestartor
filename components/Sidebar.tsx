@@ -284,7 +284,15 @@ export default function Sidebar({
   }, [activeWorkflow, exportingNotebook, onNotebookReady, goalSpec]);
 
   return (
-    <aside className={`fixed top-0 left-0 bottom-0 w-72 z-30 flex flex-col bg-[#050505] border-r border-[#1a1a1a] overflow-hidden transition-transform duration-300 ease-in-out sm:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <aside
+      className={`
+        fixed top-0 left-0 bottom-0 w-72 z-30
+        sm:static sm:z-auto sm:h-auto sm:shrink-0 sm:translate-x-0
+        flex flex-col bg-[#050505] border-r border-[#1a1a1a] overflow-hidden
+        transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}
+    >
 
       {/* ── Branding ────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">

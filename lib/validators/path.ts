@@ -310,17 +310,10 @@ export function validatePath(
   };
 }
 
-/**
- * Concatenated re-prompt string to append to the model when we ask it to
- * fix the path. Short and directive — long feedback makes Nemotron drift.
- */
-export function buildPathRepromptFeedback(
-  result: PathValidationResult,
-): string {
-  if (result.ok) return '';
-  const lines = result.violations.map((v) => `- ${v.reprompt}`);
-  return [
-    'Your previous path had issues. Fix every one of them and emit a new JSON object:',
-    ...lines,
-  ].join('\n');
-}
+// buildPathRepromptFeedback() previously lived here. It was deleted on
+// 2026-04-21 after Exp 13 (docs/EXPERIMENTATION.md) proved that re-prompting
+// Stage 2 with validator feedback systematically over-emits services (paths
+// ballooned 8 → 15, quality dropped 9/10 → 5-6/10). The function was kept
+// inactive in the tree for a while "for potential future re-enablement" but
+// that's exactly the junk-code pattern we're trying to avoid. If you want to
+// resurrect it, recover from git history — don't keep dead code parked here.

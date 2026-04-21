@@ -27,7 +27,13 @@ import {
   INJECTION_GUARD,
   zodErrorsToStrings,
 } from '@/lib/schemas';
-import { validatePath, buildPathRepromptFeedback } from '@/lib/validators/path';
+// validatePath runs post-generation as warning-only observability — its
+// result is logged/returned but never fed back to the model. Exp 13
+// (docs/EXPERIMENTATION.md) proved that re-prompting on validator output
+// causes systematic over-emission (8 → 15 services). The old
+// `buildPathRepromptFeedback` helper that did the re-prompting has been
+// deleted from lib/validators/path.ts — recover from git if ever needed.
+import { validatePath } from '@/lib/validators/path';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -172,20 +178,23 @@ export async function POST(request: Request) {
 
   try {
     const t0 = Date.now();
+    // Retry budget covers ONLY mechanical failures (truncated response,
+    // unparseable JSON, network error). We do NOT retry on semantic
+    // validator violations — Exp 13 (2026-04-20) proved that feeding path
+    // validator output back to the model caused systematic over-emission
+    // (paths 8 → 15) because the model has no ground-truth signal and
+    // reads violations as pressure to add more services. See also Exp 7
+    // for the matching regression at Stage 1. Retry loops only help stages
+    // with objective ground truth (Stage 3 notebook execution errors).
     const MAX_RETRIES = 3;
     let parsed: Record<string, unknown> | null = null;
     let reasoning = '';
-    // Semantic feedback appended to next prompt when validatePath finds issues.
-    let semanticFeedback = '';
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       const maxTokens = attempt > 1 ? 8192 : 6144;
-      let userContent = attempt > 1
+      const userContent = attempt > 1
         ? userPrompt + '\n\nRESPOND WITH ONLY JSON. No <think> tags. Start with {'
         : userPrompt;
-      if (semanticFeedback) {
-        userContent += '\n\n' + semanticFeedback;
-      }
 
       let chat;
       try {
@@ -215,11 +224,13 @@ export async function POST(request: Request) {
 
       console.log(`[generate-flow][${correlationId}] Attempt ${attempt}: ${rawContent.length}ch, finish=${chat.finishReason}`);
 
+      // Mechanical retry — truncated response.
       if (chat.finishReason === 'length' && attempt < MAX_RETRIES) {
         console.warn(`[generate-flow][${correlationId}] Truncated — retrying`);
         continue;
       }
 
+      // Mechanical retry — unparseable JSON.
       try {
         parsed = parseJson(answer);
       } catch (err) {
@@ -228,31 +239,10 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // If the model returned verified:false there's no semantic check to run.
-      if (parsed?.verified === false) break;
-
-      // Semantic path validation — feeds specific issues back as re-prompt.
-      // Only runs when a GoalSpec is available (need use-case context for
-      // LLM-misfit detection). Without GoalSpec we skip to schema stage.
-      if (goalSpec && Array.isArray(parsed?.steps) && parsed.steps.length > 0) {
-        const semantic = validatePath(parsed.steps as WorkflowStep[], goalSpec);
-        if (semantic.kind === 'clean') {
-          break; // clean path — done
-        }
-
-        console.log(`[generate-flow][${correlationId}] Attempt ${attempt} semantic kind=${semantic.kind}; violations=${semantic.violations.length}`);
-
-        // Hard violations (unknown service id / layer order / duplicates) and
-        // soft violations (LLM misfit / disconnected flow) both trigger a
-        // re-prompt while budget remains. On final attempt we accept the path
-        // and record the violations in the response so the UI/caller can warn.
-        if (attempt < MAX_RETRIES) {
-          semanticFeedback = buildPathRepromptFeedback(semantic);
-          continue;
-        }
-      }
-
-      break; // no GoalSpec, or final attempt — accept what we have
+      // Successful parse — accept the path. Semantic quality is observed
+      // (validatePath below) but NOT re-prompted; the model's first call
+      // with the data-flow prompt is the peak-quality answer we can get.
+      break;
     }
 
     if (!parsed) {
@@ -303,18 +293,12 @@ export async function POST(request: Request) {
       return { ...s, role: svc?.shortDescription ?? s.role };
     });
 
-    // Safety cap: if the model over-corrected under retry feedback and
-    // emitted > schema max, truncate instead of 502. Keep the first N.
-    // Observed live: retry feedback sometimes makes the model emit MORE
-    // services than before, inflating the path. We'd rather ship 15 of 17
-    // than fail the whole pipeline.
-    const MAX_STEPS = 15;
-    if (steps.length > MAX_STEPS) {
-      console.warn(
-        `[generate-flow][${correlationId}] truncating ${steps.length} steps to ${MAX_STEPS} (model over-emitted)`,
-      );
-      steps = steps.slice(0, MAX_STEPS);
-    }
+    // NOTE: an earlier version truncated to MAX_STEPS=15 here as a stopgap
+    // against retry-induced over-emission. The retry loop itself was
+    // removed (see Exp 13), so the cap was removed with it. If Stage 2
+    // starts emitting verbose paths again, add a cap back here — the
+    // underlying model is not guaranteed to be concise without one.
+    // Schema validation below still enforces the hard upper bound from Zod.
 
     // Final schema validation — guarantees Stage 3 receives well-formed path.
     const stepsCheck = WorkflowStepsSchema.safeParse(steps);
@@ -335,7 +319,7 @@ export async function POST(request: Request) {
       : [];
     if (residualViolations.length > 0) {
       console.warn(
-        `[generate-flow][${correlationId}] residual violations after retries: ${residualViolations.map((v) => v.code + ':' + (v.serviceId ?? '')).join(', ')}`,
+        `[generate-flow][${correlationId}] path validator observed violations (warning-only, not re-prompted): ${residualViolations.map((v) => v.code + ':' + (v.serviceId ?? '')).join(', ')}`,
       );
     }
 
