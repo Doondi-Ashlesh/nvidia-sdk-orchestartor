@@ -293,12 +293,20 @@ export async function POST(request: Request) {
       return { ...s, role: svc?.shortDescription ?? s.role };
     });
 
-    // NOTE: an earlier version truncated to MAX_STEPS=15 here as a stopgap
-    // against retry-induced over-emission. The retry loop itself was
-    // removed (see Exp 13), so the cap was removed with it. If Stage 2
-    // starts emitting verbose paths again, add a cap back here — the
-    // underlying model is not guaranteed to be concise without one.
-    // Schema validation below still enforces the hard upper bound from Zod.
+    // Safety cap on path length. Not load-bearing for the Exp 8 data-flow
+    // prompt (avg 8 services on the 7-case suite), but a backstop against
+    // the 120B model emitting a verbose path on an edge-case input. Set to
+    // 15 because Exp 13 observed paths ballooning to 15 under retry
+    // pressure; if the first-call output ever hits this cap we'd rather
+    // ship 15 truncated steps than fail the pipeline. Re-tune after
+    // real-world usage if this cap is ever triggered.
+    const MAX_STEPS = 15;
+    if (steps.length > MAX_STEPS) {
+      console.warn(
+        `[generate-flow][${correlationId}] truncating ${steps.length} steps to ${MAX_STEPS} (model emitted verbose path)`,
+      );
+      steps = steps.slice(0, MAX_STEPS);
+    }
 
     // Final schema validation — guarantees Stage 3 receives well-formed path.
     const stepsCheck = WorkflowStepsSchema.safeParse(steps);

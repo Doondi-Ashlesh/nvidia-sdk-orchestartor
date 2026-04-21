@@ -27,19 +27,18 @@ import {
   buildFeatureSpecs,
 } from '@/lib/scaffolding-templates';
 import { completeChat } from '@/lib/llm-client';
+// Re-prompt builders (buildASTRepromptFeedback, buildNarrativeRepromptFeedback,
+// buildPythonSyntaxRepromptFeedback) are intentionally NOT imported —
+// their retry loops regressed output (see Exp 13 / Exp 15 / dry-run
+// 2026-04-21 where 13 cells collapsed to 5 after three retries). The
+// builders still live in the validator modules for potential future use
+// with a ground-truth-grounded signal.
 import {
   validateNotebookAST,
-  buildASTRepromptFeedback,
   type NotebookCellLike,
 } from '@/lib/validators/notebook-ast';
-import {
-  validateNarrative,
-  buildNarrativeRepromptFeedback,
-} from '@/lib/validators/narrative';
-import {
-  validatePythonSyntax,
-  buildPythonSyntaxRepromptFeedback,
-} from '@/lib/validators/python-syntax';
+import { validateNarrative } from '@/lib/validators/narrative';
+import { validatePythonSyntax } from '@/lib/validators/python-syntax';
 import { extractParseableObjects } from '@/lib/json-repair-nbjson';
 import {
   GenerateNotebookRequestSchema,
@@ -403,85 +402,69 @@ Output ONLY a JSON array of cells:
       continue;
     }
 
-    // AST grounding validation (layer 2 — semantic). Checks that every
-    // import / attribute chain under an NVIDIA namespace exists in the
-    // allowed-API manifest. Fake CLI invocations (e.g. `nemo train`) are
-    // also caught here.
+    // Validators run as observability only — their output is logged and
+    // surfaced in the response but NEVER fed back to the model as retry
+    // feedback. Exp 13 (Stage 2) and Exp 15 (Stage 1) both proved that
+    // re-prompting on synthetic validator signals regresses output: the
+    // model reads "here are violations" as pressure to restructure, and
+    // the restructured output is usually worse than the first call. On a
+    // local dry run (2026-04-21) the previous in-route retry loop turned
+    // a 13-cell first-pass into a 5-cell stub after three iterations and
+    // ran for 27 minutes. Retry is only the right tool when the signal
+    // is ground truth — i.e. real execution errors — and that loop lives
+    // OUTSIDE this route (Exp 14 orchestrator, `/api/fix-notebook-cell`).
+
+    // Layer 2: AST grounding — catches invented imports / fake CLIs.
     const astResult = validateNotebookAST(
       schemaResult.data as NotebookCellLike[],
     );
     console.log(
-      `[generate-notebook][${correlationId}] Attempt ${attempt} AST: ` +
+      `[generate-notebook][${correlationId}] AST: ` +
         `cells=${astResult.stats.codeCellsChecked} imports=${astResult.stats.importsChecked} ` +
         `nvidia=${astResult.stats.nvidiaImportsChecked} violations=${astResult.violations.length}`,
     );
-
-    if (!astResult.ok && attempt < 3) {
-      feedback = buildASTRepromptFeedback(astResult);
-      continue;
-    }
-
-    // Final attempt: accept the notebook even with residual AST violations
-    // but surface them in logs so post-run inspection can catch what survived.
     if (!astResult.ok) {
       console.warn(
-        `[generate-notebook][${correlationId}] AST violations survived retries (${astResult.violations.length}):`,
+        `[generate-notebook][${correlationId}] AST violations (${astResult.violations.length}) — surfaced but NOT re-prompted:`,
       );
       for (const v of astResult.violations.slice(0, 5)) {
         console.warn(`  - ${v.message}`);
       }
     }
 
-    // Python syntax check (layer 3 — won't parse). Calls `ast.parse` via a
-    // local Python subprocess. Catches missing `:` on block starters,
-    // unclosed brackets, etc. Runtime-only bugs (wrong args, uncallable
-    // context manager) still require execution — that's Brev's job.
+    // Layer 3: Python syntax — catches parse errors via local `ast.parse`.
     const syntaxResult = validatePythonSyntax(
       schemaResult.data as NotebookCellLike[],
     );
     console.log(
-      `[generate-notebook][${correlationId}] Attempt ${attempt} python-syntax: ` +
+      `[generate-notebook][${correlationId}] python-syntax: ` +
         `cells=${syntaxResult.stats.codeCellsChecked} ` +
         `skipped=${syntaxResult.skipped} ` +
         `violations=${syntaxResult.violations.length}`,
     );
-
-    if (!syntaxResult.ok && attempt < 3) {
-      feedback = buildPythonSyntaxRepromptFeedback(syntaxResult);
-      continue;
-    }
-
     if (!syntaxResult.ok) {
       console.warn(
-        `[generate-notebook][${correlationId}] Python syntax errors survived retries (${syntaxResult.violations.length}):`,
+        `[generate-notebook][${correlationId}] Python syntax errors (${syntaxResult.violations.length}) — surfaced but NOT re-prompted:`,
       );
       for (const v of syntaxResult.violations.slice(0, 5)) {
         console.warn(`  - ${v.message}`);
       }
     }
 
-    // Narrative structure validation (layer 4 — shape of the story).
-    // Checks that required sections (overview / setup / baseline / eval /
-    // summary) are present. Training paths require baseline too.
+    // Layer 4: Narrative structure — checks required sections exist.
     const narrativeResult = validateNarrative(
       schemaResult.data as NotebookCellLike[],
       steps,
     );
     console.log(
-      `[generate-notebook][${correlationId}] Attempt ${attempt} narrative: ` +
+      `[generate-notebook][${correlationId}] narrative: ` +
         `found=[${narrativeResult.sectionsFound.join(',')}] ` +
         `missing=${narrativeResult.violations.length}`,
     );
-
-    if (!narrativeResult.ok && attempt < 3) {
-      feedback = buildNarrativeRepromptFeedback(narrativeResult);
-      continue;
-    }
-
     if (!narrativeResult.ok) {
       console.warn(
-        `[generate-notebook][${correlationId}] Narrative gaps survived retries: ` +
-          `missing=${narrativeResult.violations.map((v) => v.section).join(',')}`,
+        `[generate-notebook][${correlationId}] Narrative gaps: ` +
+          `missing=${narrativeResult.violations.map((v) => v.section).join(',')} — surfaced but NOT re-prompted`,
       );
     }
 

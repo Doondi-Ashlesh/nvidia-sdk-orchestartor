@@ -451,8 +451,25 @@ function normalizeSpec(spec: GoalSpec): GoalSpec {
 export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
   const url = new URL(request.url);
-  const draftOnly = url.searchParams.get('draft') === 'true'
-    || url.searchParams.get('fast') === 'true';
+  // Default behaviour: planner-only single call ("draft"). The adversary
+  // loop is opt-in via `?deep=true`.
+  //
+  // WHY — Experiments 7 and 15 (docs/EXPERIMENTATION.md) both found that
+  // the adversary loop regresses Stage 1 output on short / vague inputs:
+  //   - Exp 7 (10 enterprise use cases): plain planner wins 6/10, grounded
+  //     loop wins 2/10
+  //   - Exp 15 (two vague prompts): loop is 9.6× slower, *softens* the
+  //     quantified perf targets (2s → 5s, 90% → 80%), and *drops* real
+  //     compliance frameworks (FDA SaMD, SOC 2, CCPA, PSD2) while adding
+  //     irrelevant ones (SOX for a consumer fraud tool).
+  // The loop earns its keep only on long / detailed inputs where the
+  // planner has enough material that the loop's breadth-adding behavior
+  // is additive rather than substitutive. Those cases should opt in.
+  //
+  // Legacy `?draft=true` and `?fast=true` params remain supported as
+  // no-ops so existing callers keep working.
+  const deepMode = url.searchParams.get('deep') === 'true';
+  const draftOnly = !deepMode;
 
   let rawBody: unknown;
   try {
