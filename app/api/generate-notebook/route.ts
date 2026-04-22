@@ -241,6 +241,13 @@ export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
   const t0 = Date.now();
 
+  // 0. Parse blueprint opt-in flag. Default is OFF during rollout so we
+  // can A/B against the pre-blueprint from-scratch generation using the
+  // same prompts. Flip to `?useBlueprints=false` to opt OUT once default
+  // flips to true.
+  const url = new URL(request.url);
+  const useBlueprints = url.searchParams.get('useBlueprints') === 'true';
+
   // 1. Parse + validate request body
   let rawBody: unknown;
   try {
@@ -266,6 +273,59 @@ export async function POST(request: Request) {
 
   // 2. Sanitize user-provided strings
   const safeGoal = sanitizeUserText(rawGoal);
+
+  // 2a. Blueprint short-circuit. If the flag is on AND a matching
+  // NVIDIA blueprint exists for this GoalSpec + path, we return a
+  // parameterized version of that blueprint notebook instead of
+  // generating cells from scratch. This is the Exp 17/18 class fix:
+  // blueprint cells use real NVIDIA SDK APIs (RailsConfig.from_path,
+  // etc) by construction, so the "labeled NeMo but implemented in
+  // HuggingFace" semantic gap doesn't exist.
+  if (useBlueprints && goalSpec) {
+    try {
+      const { matchBlueprint } = await import('@/lib/blueprint-matcher');
+      const { parameterizeBlueprint } = await import('@/lib/blueprint-parameterizer');
+      const matchResult = matchBlueprint(goalSpec, steps);
+
+      console.log(
+        `[generate-notebook][${correlationId}] blueprint match: ${matchResult.reason} ` +
+        `scores=${JSON.stringify(matchResult.scores)}`,
+      );
+
+      if (matchResult.blueprint) {
+        const paramResult = parameterizeBlueprint(matchResult.blueprint, goalSpec, steps);
+        console.log(
+          `[generate-notebook][${correlationId}] parameterized ${matchResult.blueprint.id}: ` +
+          `substitutions=${paramResult.substitutionCount} resolved=${Object.keys(paramResult.resolvedSlots).length} ` +
+          `unresolved=${paramResult.unresolvedSlots.join(',') || '(none)'}`,
+        );
+
+        const latencyMs = Date.now() - t0;
+        const body = JSON.stringify(paramResult.notebook, null, 2);
+
+        return new NextResponse(body, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/x-ipynb+json',
+            'Content-Disposition': `attachment; filename="nvidia-pipeline-${matchResult.blueprint.id}-${Date.now()}.ipynb"`,
+            'X-Generation-Mode': `blueprint:${matchResult.blueprint.id}`,
+            'X-Generation-Latency-Ms': String(latencyMs),
+            'X-Correlation-Id': correlationId,
+            'X-Blueprint-Resolved-Slots': Object.keys(paramResult.resolvedSlots).join(','),
+            'X-Blueprint-Unresolved-Slots': paramResult.unresolvedSlots.join(','),
+          },
+        });
+      }
+      // No blueprint matched — fall through to from-scratch generation.
+    } catch (err) {
+      // Blueprint lookup / parameterization failed (e.g. missing .ipynb file).
+      // Fall through to from-scratch generation rather than 500 the request.
+      console.warn(
+        `[generate-notebook][${correlationId}] blueprint path failed, falling through: ` +
+        (err instanceof Error ? err.message : String(err)),
+      );
+    }
+  }
 
   // 3. Assemble prompts
   const serviceIds = steps.map((s) => s.serviceId);
