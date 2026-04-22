@@ -375,6 +375,23 @@ ${blueprintReference}
 
   const systemPrompt = `You are a senior NVIDIA AI engineer generating production-ready Jupyter notebooks.
 
+═══════════════════════════════════════════════════════════════════════════
+OUTPUT FORMAT — READ THIS FIRST
+═══════════════════════════════════════════════════════════════════════════
+Your ENTIRE response MUST be a single JSON array of cell objects. Nothing
+else. No prose. No markdown. No <think> tags. No "Here is the notebook:"
+preamble. No commentary after the array. Just the array:
+
+[{"cell_type": "markdown", "source": "..."}, {"cell_type": "code", "source": "..."}]
+
+TARGET OUTPUT SIZE: 30–60 cells. Too few = incomplete coverage. Too many
+= bloated. Aim for the minimum that covers setup, deploy, test, customize,
+and cleanup for the user's goal.
+
+If you find yourself writing anything outside the JSON array — STOP and
+put it inside a markdown cell's \`source\` field, or delete it entirely.
+═══════════════════════════════════════════════════════════════════════════
+
 CRITICAL: Use the REAL NVIDIA CODE PATTERNS below. Do NOT invent API calls or function names.
 
 ${patterns}
@@ -403,8 +420,17 @@ Rules:
 
 ${INJECTION_GUARD}
 
-Output ONLY a JSON array of cells:
-[{"cell_type": "markdown", "source": "# Title\\n\\nExplanation..."}, {"cell_type": "code", "source": "import os\\n..."}]`;
+═══════════════════════════════════════════════════════════════════════════
+FINAL REMINDER BEFORE OUTPUT
+═══════════════════════════════════════════════════════════════════════════
+Respond with ONLY a JSON array. Start with [ and end with ]. Each element
+is an object with exactly two fields: "cell_type" (either "markdown" or
+"code") and "source" (string). Example shape:
+
+[{"cell_type": "markdown", "source": "# Title\\n\\nExplanation..."}, {"cell_type": "code", "source": "import os\\n..."}]
+
+Do not include anything before the opening [ or after the closing ].
+═══════════════════════════════════════════════════════════════════════════`;
 
   const baseUserPrompt = scaffoldingContext
     ? `GOAL:\n${wrapUserBlock(safeGoal)}\n\n${scaffoldingContext}\n\nSERVICE PATH (JSON):\n${JSON.stringify(steps, null, 2)}`
