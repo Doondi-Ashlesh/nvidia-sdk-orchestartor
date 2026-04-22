@@ -241,12 +241,12 @@ export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
   const t0 = Date.now();
 
-  // 0. Parse blueprint opt-in flag. Default is OFF during rollout so we
-  // can A/B against the pre-blueprint from-scratch generation using the
-  // same prompts. Flip to `?useBlueprints=false` to opt OUT once default
-  // flips to true.
+  // 0. Blueprint feature flag. Default is ON for this branch
+  // (`claude/blueprint-grounding`) so UI runs use the blueprint path
+  // automatically. `?useBlueprints=false` opts OUT when you want to
+  // compare against the pre-blueprint from-scratch generation.
   const url = new URL(request.url);
-  const useBlueprints = url.searchParams.get('useBlueprints') === 'true';
+  const useBlueprints = url.searchParams.get('useBlueprints') !== 'false';
 
   // 1. Parse + validate request body
   let rawBody: unknown;
