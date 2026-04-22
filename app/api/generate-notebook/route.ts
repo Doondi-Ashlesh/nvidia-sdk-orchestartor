@@ -274,17 +274,29 @@ export async function POST(request: Request) {
   // 2. Sanitize user-provided strings
   const safeGoal = sanitizeUserText(rawGoal);
 
-  // 2a. Blueprint short-circuit. If the flag is on AND a matching
-  // NVIDIA blueprint exists for this GoalSpec + path, we return a
-  // parameterized version of that blueprint notebook instead of
-  // generating cells from scratch. This is the Exp 17/18 class fix:
-  // blueprint cells use real NVIDIA SDK APIs (RailsConfig.from_path,
-  // etc) by construction, so the "labeled NeMo but implemented in
-  // HuggingFace" semantic gap doesn't exist.
+  // 2a. Blueprint grounding (NOT blueprint verbatim-return).
+  //
+  // If a matching NVIDIA blueprint exists for this GoalSpec + path, we
+  // load its full cell content and inject it into the Stage 3 system
+  // prompt as *reference material*. The LLM then generates a CUSTOMIZED
+  // notebook that uses the blueprint's real APIs, helpers, and section
+  // structure — but tailored to the user's specific goal (compliance,
+  // dataset, integration targets, perf targets, sample queries, etc.).
+  //
+  // An earlier iteration on this branch returned the blueprint verbatim
+  // with only a goal-header cell prepended. That was technically correct
+  // but defeated the purpose — user got NVIDIA's generic demo with a
+  // sticker, not a customized plan. This design keeps the blueprint as
+  // grounding, makes the LLM do the customization work.
+  let blueprintReference: string | null = null;
+  let matchedBlueprintId: string | null = null;
+  let matchedBlueprintTitle: string | null = null;
+  let blueprintGroundingMeta: { cellCount: number; sizeChars: number } | null = null;
+
   if (useBlueprints && goalSpec) {
     try {
       const { matchBlueprint } = await import('@/lib/blueprint-matcher');
-      const { parameterizeBlueprint } = await import('@/lib/blueprint-parameterizer');
+      const { loadBlueprintContent } = await import('@/lib/blueprint-grounding');
       const matchResult = matchBlueprint(goalSpec, steps);
 
       console.log(
@@ -293,35 +305,22 @@ export async function POST(request: Request) {
       );
 
       if (matchResult.blueprint) {
-        const paramResult = parameterizeBlueprint(matchResult.blueprint, goalSpec, steps);
+        const grounding = loadBlueprintContent(matchResult.blueprint);
+        blueprintReference = grounding.referenceText;
+        matchedBlueprintId = matchResult.blueprint.id;
+        matchedBlueprintTitle = matchResult.blueprint.title;
+        blueprintGroundingMeta = { cellCount: grounding.cellCount, sizeChars: grounding.sizeChars };
+
         console.log(
-          `[generate-notebook][${correlationId}] parameterized ${matchResult.blueprint.id}: ` +
-          `substitutions=${paramResult.substitutionCount} resolved=${Object.keys(paramResult.resolvedSlots).length} ` +
-          `unresolved=${paramResult.unresolvedSlots.join(',') || '(none)'}`,
+          `[generate-notebook][${correlationId}] grounding with ${matchResult.blueprint.id}: ` +
+          `${grounding.cellCount} cells, ${grounding.sizeChars} chars`,
         );
-
-        const latencyMs = Date.now() - t0;
-        const body = JSON.stringify(paramResult.notebook, null, 2);
-
-        return new NextResponse(body, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/x-ipynb+json',
-            'Content-Disposition': `attachment; filename="nvidia-pipeline-${matchResult.blueprint.id}-${Date.now()}.ipynb"`,
-            'X-Generation-Mode': `blueprint:${matchResult.blueprint.id}`,
-            'X-Generation-Latency-Ms': String(latencyMs),
-            'X-Correlation-Id': correlationId,
-            'X-Blueprint-Resolved-Slots': Object.keys(paramResult.resolvedSlots).join(','),
-            'X-Blueprint-Unresolved-Slots': paramResult.unresolvedSlots.join(','),
-          },
-        });
       }
-      // No blueprint matched — fall through to from-scratch generation.
     } catch (err) {
-      // Blueprint lookup / parameterization failed (e.g. missing .ipynb file).
-      // Fall through to from-scratch generation rather than 500 the request.
+      // Grounding load failed (missing .ipynb, parse error, etc.).
+      // Fall through to plain from-scratch generation; don't 500 the request.
       console.warn(
-        `[generate-notebook][${correlationId}] blueprint path failed, falling through: ` +
+        `[generate-notebook][${correlationId}] blueprint grounding failed, falling through: ` +
         (err instanceof Error ? err.message : String(err)),
       );
     }
@@ -334,12 +333,52 @@ export async function POST(request: Request) {
     ? buildScaffoldingContext(goalSpec, steps)
     : '';
 
+  // Blueprint reference section — only included when a blueprint matched
+  // AND we successfully loaded its .ipynb. The prompt explicitly tells
+  // the model this is grounding material, not the final output.
+  const blueprintGroundingSection = blueprintReference && matchedBlueprintTitle
+    ? `
+## REFERENCE BLUEPRINT — "${matchedBlueprintTitle}" (use as grounding, NOT as final output)
+
+You have been given NVIDIA's canonical "${matchedBlueprintTitle}" blueprint below. Its helpers, API calls, deploy patterns, env var names, and section structure are KNOWN-CORRECT — use them verbatim. But the blueprint is a GENERIC demo. Your job is to produce a CUSTOMIZED notebook specifically for the user's goal, using the blueprint as the architectural reference.
+
+**What to preserve from the blueprint (verbatim):**
+- Helper function names and signatures: \`docker_compose\`, \`check_containers\`, \`api_get\`, \`check_health\`, \`deploy_all\`, \`stop_all\`, \`await chat\`, \`await list_collections\`, \`await upload_documents\`, \`RailsConfig.from_path\`, etc. Do NOT invent variants or substitute with HuggingFace / sklearn / custom Python.
+- Section structure: Setup → Prerequisites → Deploy → Test → (Customize) → Cleanup. Keep this skeleton.
+- Env var names and port numbers: \`APP_NVINGEST_*\`, \`RAG_SERVER_PORT=8081\`, \`INGESTOR_SERVER_PORT=8082\`, \`MILVUS_ENDPOINT\`, etc. The blueprint uses these specific names — the deployed services listen on these specific ports.
+- Config-file names the blueprint references (\`prompt.yaml\`, \`config.yml\`, \`nims.yaml\`, \`docker-compose-*.yaml\`).
+- Docker compose deploy pattern (the \`deploy_all()\` calling 4 compose files, not hand-rolled \`docker run\`).
+
+**What to CUSTOMIZE for the user's goal (DO NOT ship the blueprint's defaults):**
+- **Sample queries / test questions**: the blueprint likely uses generic questions like "What is machine learning?". REPLACE with 2-3 questions drawn from the user's domain and use case.
+- **Sample dataset / document corpus**: the blueprint likely downloads a public sample (e.g. a Wikipedia PDF). REPLACE with a goal-appropriate corpus. If no public equivalent exists, write a clearly-marked placeholder cell (e.g. \`HOSPITAL_CORPUS_PATH = "./data/deidentified_clinical_notes/"  # TODO: populate with your de-identified source\`) with an inline comment describing expected format.
+- **Guardrails / safety config**: generate a Colang rails file (\`rails.co\` + \`config.yml\`) specifically enforcing the user's compliance frameworks. HIPAA → PHI redaction + refuse out-of-scope clinical advice + confidence-based escalation. SOX → audit logging + decision-explanation retention. PCI DSS → tokenize PAN before logging. Do NOT use the blueprint's default (usually empty/permissive) rails.
+- **Performance / scaling env vars**: set based on the user's stated latency / throughput targets (e.g. \`MAX_TOKENS=512\` for sub-1.5s latency; \`DYNAMIC_BATCH_SIZE=32\` for 20k TPS).
+- **Integration-stub cells**: for every external system the user mentioned (Epic EHR, Kafka stream, OPC-UA to MES, chargeback workflow, etc.), add a clearly-marked stub cell showing the connection point, expected message shape, and auth pattern — even if it's a TODO.
+- **Evaluation cell tailored to the user's targets**: not a generic benchmark — a cell that tests against the specific perf goals from the GoalSpec (e.g. "assert p95_latency_ms <= 1500" for a latency-sensitive use case, "assert recall >= 0.95 on safety_critical_intents" for clinical safety).
+- **Domain-specific sections** the blueprint doesn't have: clinical-safety evaluation for healthcare; 7-year audit retention for SOX; failover / hot-swap procedure if the user asked for zero-downtime; etc.
+
+**Hard rules:**
+- DO NOT output a verbatim copy of the blueprint with a goal-header prepended. The user has already seen that; it's worthless to them.
+- DO NOT invent API calls not in the blueprint or the grounding patterns above. Use what's real.
+- DO customize at minimum: the sample question(s), the sample dataset, the guardrails config, and add at least one integration stub cell per external system mentioned.
+
+### Reference blueprint content (${blueprintGroundingMeta?.cellCount ?? 0} cells, ${blueprintGroundingMeta?.sizeChars ?? 0} chars):
+
+\`\`\`
+${blueprintReference}
+\`\`\`
+
+---
+`
+    : '';
+
   const systemPrompt = `You are a senior NVIDIA AI engineer generating production-ready Jupyter notebooks.
 
 CRITICAL: Use the REAL NVIDIA CODE PATTERNS below. Do NOT invent API calls or function names.
 
 ${patterns}
-
+${blueprintGroundingSection}
 NOTEBOOK STRUCTURE (narrative-driven, matches NVIDIA GenerativeAIExamples pattern):
 The notebook should tell a story, not just list services. Follow this sequence:
 
@@ -580,6 +619,14 @@ Output ONLY a JSON array of cells:
       `ms=${latencyMs} tokens=${lastChat.usage?.total_tokens ?? '?'}`,
   );
 
+  // Diagnostic header noting whether a blueprint was used for grounding.
+  // `blueprint-grounded:<id>` means the LLM had the blueprint as reference
+  // material in its system prompt (and should have customized around it).
+  // `from-scratch` means no blueprint matched or grounding load failed.
+  const generationMode = matchedBlueprintId
+    ? `blueprint-grounded:${matchedBlueprintId}`
+    : 'from-scratch';
+
   return new NextResponse(body, {
     status: 200,
     headers: {
@@ -589,6 +636,13 @@ Output ONLY a JSON array of cells:
       'X-Cell-Count': String(dataCells.length + 1),
       'X-Correlation-Id': correlationId,
       'X-Model-Tag': lastChat.modelTag,
+      'X-Generation-Mode': generationMode,
+      ...(blueprintGroundingMeta
+        ? {
+            'X-Blueprint-Reference-Cells': String(blueprintGroundingMeta.cellCount),
+            'X-Blueprint-Reference-Chars': String(blueprintGroundingMeta.sizeChars),
+          }
+        : {}),
     },
   });
 }
