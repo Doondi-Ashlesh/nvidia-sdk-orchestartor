@@ -37,7 +37,9 @@ import { validatePath } from '@/lib/validators/path';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const LAYER_ORDER = ['access', 'sdk', 'framework', 'agent', 'serving', 'enterprise'];
+// NB: the LAYER_ORDER constant used to live here and drive a post-generation
+// sort of the service path. Removed on this branch — see the "Layer-order
+// sort intentionally REMOVED" comment in the POST handler below.
 
 const SERVICE_LIST = NVIDIA_SERVICES.map(
   (s) => `${s.id} (${s.layer}): ${s.shortDescription}`
@@ -280,12 +282,21 @@ export async function POST(request: Request) {
       }, { status: 422 });
     }
 
-    // Sort by layer order for graph
-    steps = steps.sort((a, b) => {
-      const layerA = serviceById.get(a.serviceId)?.layer ?? '';
-      const layerB = serviceById.get(b.serviceId)?.layer ?? '';
-      return LAYER_ORDER.indexOf(layerA) - LAYER_ORDER.indexOf(layerB);
-    });
+    // Layer-order sort intentionally REMOVED on this branch (see Exp 17).
+    //
+    // The previous code sorted the path by LAYER_ORDER
+    // (access → sdk → framework → agent → serving → enterprise), which
+    // respected the architectural grouping but frequently violated the
+    // data-flow ordering the model itself reasoned about. For example, a
+    // hospital-chatbot path where the model emitted
+    //   Curator → RAPIDS → NeMo → TensorRT → Guardrails → Triton → ...
+    // was re-sorted to
+    //   TensorRT → Curator → RAPIDS → NeMo → Guardrails → Triton → ...
+    // because TensorRT lives in the SDK layer and sorted first — even
+    // though it depends on a trained NeMo checkpoint. Keeping the model's
+    // own emitted order preserves its data-flow reasoning. Ordering
+    // integrity is now the model's responsibility (data-flow prompt
+    // already asks it to describe inputs/outputs per service).
 
     // Use catalog shortDescription as role for UI
     steps = steps.map((s) => {
