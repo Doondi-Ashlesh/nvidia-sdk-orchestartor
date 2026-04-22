@@ -139,6 +139,10 @@ export default function Home() {
   const [goalSpec, setGoalSpec]               = useState<GoalSpec | null>(null);
   const [notebookReady, setNotebookReady]     = useState(false);
   const [cachedNotebook, setCachedNotebook]   = useState<string | null>(null);
+  // The service node the user most recently clicked in explore mode — drives
+  // the "perimeter glow" indicator on that one node. Only meaningful in
+  // explore mode; ServiceNode gates rendering on mode.
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   const handleGoalSpecReady = useCallback((spec: GoalSpec) => {
     setGoalSpec(spec);
@@ -183,20 +187,29 @@ export default function Home() {
   const handleClickService = useCallback((service: Service) => {
     if (mode === 'explore') {
       setHoveredService(service);
+      // Toggle: same node twice clears the glow; different node moves it.
+      setSelectedServiceId((prev) => (prev === service.id ? null : service.id));
     } else if (mode === 'workflow' && activeWorkflow) {
       const stepIdx = activeWorkflow.steps.findIndex((s) => s.serviceId === service.id);
       if (stepIdx >= 0) setActiveStepIndex(stepIdx);
     }
   }, [mode, activeWorkflow]);
 
+  // Hover only opens the dropdown — no graph zoom. Zoom is reserved for
+  // explicit click (handleLayerClick below). Split after live feedback that
+  // mouse-through zooms were disorienting when just scanning layer headers.
   const handleLayerEnter = useCallback((layer: Layer) => {
-    setFocusLayer(layer);
     setDropdownLayer(layer);
   }, []);
 
   const handleLayerLeave = useCallback(() => {
-    setFocusLayer(null);
     setDropdownLayer(null);
+  }, []);
+
+  // Click toggles the graph zoom on a layer. Second click (or click on a
+  // different layer) clears/moves the focus. Dropdown stays under hover.
+  const handleLayerClick = useCallback((layer: Layer) => {
+    setFocusLayer((prev) => (prev === layer ? null : layer));
   }, []);
 
   return (
@@ -246,7 +259,7 @@ export default function Home() {
           <div className="flex-1 min-w-0 hidden sm:block">
             {mode === 'initial' && (
               <p className="text-slate-500 text-sm truncate">
-                <span className="text-slate-300 font-semibold">AI Ecosystem Visualizer</span>
+                <span className="text-slate-300 font-semibold">SDK Orchestrator</span>
                 <span className="hidden lg:inline text-slate-600"> — Describe your goal or explore all 25 services</span>
               </p>
             )}
@@ -305,9 +318,10 @@ export default function Home() {
           {/* Layer column headers — flex-equal so they span the full width */}
           <div className="shrink-0 flex bg-black z-10 border-b border-[#1a1a1a] pointer-events-none">
             {LAYER_ORDER.map((layer, layerIdx) => {
-              const isActive = dropdownLayer === layer;
-              const isFirst  = layerIdx === 0;
-              const isLast   = layerIdx === LAYER_ORDER.length - 1;
+              const isActive  = dropdownLayer === layer;
+              const isFocused = focusLayer === layer;
+              const isFirst   = layerIdx === 0;
+              const isLast    = layerIdx === LAYER_ORDER.length - 1;
               const layerServices = NVIDIA_SERVICES.filter((s) => s.layer === layer);
 
               // Clamp dropdown so first column doesn't overflow left, last doesn't overflow right
@@ -324,10 +338,17 @@ export default function Home() {
                   onMouseEnter={() => handleLayerEnter(layer)}
                   onMouseLeave={handleLayerLeave}
                 >
-                  {/* Header label */}
+                  {/* Header label — click to zoom, hover to see dropdown */}
                   <div
-                    className="text-center py-2.5 px-1 cursor-pointer transition-colors"
-                    style={{ borderBottom: isActive ? '1px solid #76b90040' : '1px solid transparent' }}
+                    onClick={() => handleLayerClick(layer)}
+                    className="text-center py-2.5 px-1 cursor-pointer transition-colors select-none"
+                    style={{
+                      borderBottom: isFocused
+                        ? '1px solid #76b900'
+                        : isActive
+                        ? '1px solid #76b90040'
+                        : '1px solid transparent',
+                    }}
                   >
                     <p
                       className="text-[11px] font-bold uppercase tracking-widest transition-colors truncate"
@@ -431,6 +452,7 @@ export default function Home() {
               onHoverService={handleHoverService}
               onClickService={handleClickService}
               focusLayer={focusLayer}
+              selectedServiceId={selectedServiceId}
             />
 
             {/* Export buttons — bottom-left of graph, visible only in workflow mode */}

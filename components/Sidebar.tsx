@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, ChevronRight, ChevronLeft, X, ExternalLink,
@@ -146,6 +146,53 @@ export default function Sidebar({
   const [exportNotebookError, setExportNotebookError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Resizable sidebar width (clamped 288-640 px). Persisted across reloads
+  // so the user doesn't have to re-drag every session.
+  //
+  // Hydration-safe: initialise with the default (384) on BOTH server and
+  // client, then restore the saved value post-mount via useEffect. Reading
+  // localStorage in the useState initialiser causes server-renders-384 /
+  // client-renders-stored-value hydration mismatches.
+  const [sidebarWidth, setSidebarWidth] = useState<number>(384);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('sdk-orch:sidebar-width');
+      const n = saved ? parseInt(saved, 10) : NaN;
+      if (Number.isFinite(n)) {
+        setSidebarWidth(Math.max(288, Math.min(640, n)));
+      }
+    } catch { /* ignore access errors (private mode / disabled storage) */ }
+  }, []);
+  const [resizing, setResizing] = useState(false);
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setResizing(true);
+  }, []);
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e: MouseEvent) => {
+      // Sidebar is fixed at left:0, so page X === desired width
+      const next = Math.max(288, Math.min(640, e.clientX));
+      setSidebarWidth(next);
+    };
+    const onUp = () => {
+      setResizing(false);
+      try {
+        window.localStorage.setItem('sdk-orch:sidebar-width', String(sidebarWidth));
+      } catch { /* ignore quota / private-mode errors */ }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [resizing, sidebarWidth]);
+
   // Stage 1: Analyze goal → produce GoalSpec
   const handleAnalyze = useCallback(async () => {
     const trimmed = goal.trim();
@@ -285,14 +332,31 @@ export default function Sidebar({
 
   return (
     <aside
+      style={{ width: sidebarWidth }}
       className={`
-        fixed top-0 left-0 bottom-0 w-72 z-30
+        fixed top-0 left-0 bottom-0 z-30
         sm:static sm:z-auto sm:h-auto sm:shrink-0 sm:translate-x-0
         flex flex-col bg-[#050505] border-r border-[#1a1a1a] overflow-hidden
         transition-transform duration-300 ease-in-out
+        ${resizing ? '' : 'transition-[width]'}
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
     >
+      {/* Resize handle — drag the right edge to widen/narrow the sidebar.
+          Width is clamped to [288, 640] and persisted to localStorage. */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize group z-40"
+        aria-label="Resize sidebar"
+      >
+        <div
+          className={`
+            absolute top-1/2 right-0 -translate-y-1/2 h-10 w-[3px]
+            rounded-full transition-opacity
+            ${resizing ? 'bg-[#76b900] opacity-100' : 'bg-[#333] opacity-0 group-hover:opacity-100'}
+          `}
+        />
+      </div>
 
       {/* ── Branding ────────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-5 border-b border-[#1a1a1a] shrink-0">
@@ -303,7 +367,7 @@ export default function Sidebar({
             NVIDIA
           </span>
         </div>
-        <h1 className="text-white font-bold text-base leading-snug">AI Ecosystem</h1>
+        <h1 className="text-white font-bold text-base leading-snug">SDK Orchestrator</h1>
         <p className="text-sm text-slate-500 mt-0.5">25 services · 6 layers · official docs</p>
       </div>
 
@@ -334,11 +398,6 @@ export default function Sidebar({
                 </p>
                 <p className="text-sm text-slate-600 mt-1">
                   Describe your goal — Nemotron will map the right NVIDIA services.
-                </p>
-                <p className="text-[11px] text-slate-600 mt-2 leading-snug">
-                  Stronger prompts name <span className="text-slate-500">domain</span> (e.g. healthcare RAG),{' '}
-                  <span className="text-slate-500">data placement</span> (on-prem vs cloud), and{' '}
-                  <span className="text-slate-500">scale</span> (team vs enterprise).
                 </p>
               </div>
 

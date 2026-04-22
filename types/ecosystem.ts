@@ -138,8 +138,15 @@ export type ServiceNodeData = {
   isDimmed: boolean;
   isActiveStep: boolean;
   isExploreMode: boolean;
-  /** Which layer header is currently hovered — drives dim/highlight effect */
+  /** Which layer is currently clicked-focused — drives zoom + "other layers
+   *  dimmed" effect. Does NOT glow the layer's own nodes (that moved to the
+   *  `isSelected` per-node signal below). */
   focusLayer?: Layer | null;
+  /** This is the node the user most recently clicked in explore mode. Gets a
+   *  green perimeter glow + slight scale-up so the user can track which node
+   *  they last inspected. Only honored in explore mode — initial / workflow
+   *  modes ignore it. */
+  isSelected?: boolean;
   onHover: (service: Service | null) => void;
   /** Mouse-move callback used to track cursor position for the hover tooltip (non-explore modes) */
   onMouseMove?: (service: Service, x: number, y: number) => void;

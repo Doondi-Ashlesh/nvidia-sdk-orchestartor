@@ -28,6 +28,7 @@ function ServiceNodeComponent({ data }: NodeProps) {
     isDimmed,
     isActiveStep,
     isExploreMode,
+    isSelected,
     focusLayer,
     onHover,
     onMouseMove,
@@ -37,14 +38,27 @@ function ServiceNodeComponent({ data }: NodeProps) {
 
   const [hovered, setHovered] = useState(false);
 
-  // ── Layer focus states ────────────────────────────────────────────────────
+  // ── Layer focus (full node glow) ─────────────────────────────────────────
+  // Clicking a layer header lights up every service in that layer with the
+  // full treatment — green border, green-tinted background, drop-shadow.
+  // Other layers' nodes are dimmed so the focused layer pops by contrast.
   const isLayerFocused = focusLayer != null && service.layer === focusLayer;
   const isLayerDimmed  = focusLayer != null && !isLayerFocused;
+
+  // ── Click-on-node glow (perimeter only, explore mode only) ───────────────
+  // User clicks a specific service in explore mode → that single node gets
+  // a green border + drop-shadow so they can track which node they last
+  // inspected. Background stays dark — that's the visual distinction vs
+  // layer-focus ("full node glow"). Gated on explore mode so it never
+  // appears in AI-path-generator / workflow modes.
+  const showSelectedGlow = Boolean(isSelected && isExploreMode);
 
   // ── Visual state ─────────────────────────────────────────────────────────
   const borderColor = isActiveStep
     ? GREEN
     : isLayerFocused
+    ? GREEN
+    : showSelectedGlow
     ? GREEN
     : isHighlighted
     ? `${GREEN}cc`
@@ -52,6 +66,9 @@ function ServiceNodeComponent({ data }: NodeProps) {
     ? `${GREEN}55`
     : '#1e293b';
 
+  // Background tint only for full-node glows (active step / highlighted path
+  // / layer focus). `showSelectedGlow` intentionally does NOT tint the
+  // background — it's perimeter only.
   const bgColor = isActiveStep || isHighlighted || isLayerFocused
     ? `${GREEN}12`
     : hovered
@@ -62,24 +79,47 @@ function ServiceNodeComponent({ data }: NodeProps) {
     ? `drop-shadow(0 0 14px ${GREEN}) drop-shadow(0 0 28px ${GREEN}80)`
     : isLayerFocused
     ? `drop-shadow(0 0 12px ${GREEN}90) drop-shadow(0 0 4px ${GREEN}60)`
+    : showSelectedGlow
+    ? `drop-shadow(0 0 10px ${GREEN}80) drop-shadow(0 0 3px ${GREEN}60)`
     : isHighlighted
     ? `drop-shadow(0 0 8px ${GREEN}70)`
     : hovered
     ? `drop-shadow(0 0 6px ${GREEN}45)`
     : 'none';
 
+  // `filter` must be on plain style (not motion.animate) — framer-motion can
+  // not interpolate `drop-shadow(...) → none` cleanly and leaves the shadow
+  // cached on the GPU compositor layer. Snapping via React re-render clears
+  // it the moment focusLayer (or hovered/selected) flips off. We keep
+  // opacity and scale inside framer-motion because those interpolate fine.
+  const filterValue = isDimmed
+    ? 'grayscale(0.6) brightness(0.55)'
+    : isLayerDimmed
+    ? 'grayscale(1) brightness(0.2)'
+    : glowFilter;
+
   return (
     <motion.div
       className="relative select-none"
-      style={{ width: NODE_W + 4, height: NODE_H + 4, cursor: 'pointer', willChange: 'transform, filter, opacity' }}
+      style={{
+        width: NODE_W + 4,
+        height: NODE_H + 4,
+        cursor: 'pointer',
+        willChange: 'transform, opacity',
+        filter: filterValue,
+        // Short CSS transition for the filter so it fades instead of snapping
+        // hard on/off. 180ms is short enough that it feels instant but soft.
+        transition: 'filter 180ms ease-out',
+      }}
       animate={{
         opacity: isDimmed ? 0.40 : isLayerDimmed ? 0.10 : 1,
-        filter:  isDimmed
-          ? 'grayscale(0.6) brightness(0.55)'
-          : isLayerDimmed
-          ? 'grayscale(1) brightness(0.2)'
-          : glowFilter,
-        scale: hovered && !isDimmed && !isLayerDimmed ? 1.06 : isLayerFocused && !hovered ? 1.04 : 1,
+        scale: hovered && !isDimmed && !isLayerDimmed
+          ? 1.06
+          : isLayerFocused && !hovered
+          ? 1.04
+          : showSelectedGlow && !hovered
+          ? 1.03
+          : 1,
       }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
       onMouseEnter={(e) => {
@@ -190,6 +230,7 @@ export default memo(ServiceNodeComponent, (prev, next) => {
     pd.isActiveStep  === nd.isActiveStep  &&
     pd.stepNumber    === nd.stepNumber    &&
     pd.isExploreMode === nd.isExploreMode &&
-    pd.focusLayer    === nd.focusLayer
+    pd.focusLayer    === nd.focusLayer    &&
+    pd.isSelected    === nd.isSelected
   );
 });

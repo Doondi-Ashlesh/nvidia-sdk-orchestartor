@@ -991,6 +991,371 @@ OpenRouter free tier is a viable alternative for GoalSpec and path generation ($
 
 ---
 
+## Experiment 13: Stage 2 Validator-Retry Regression (2026-04-20)
+
+### Context
+
+After shipping the Brev end-to-end run, live testing of the frontend on
+the healthcare clinical-decision-support prompt produced a **15-service
+path** — visibly bloated vs. the ~8-service paths Exp 8/9 recorded at
+8.7/10. Hypothesis: Stage 2 regressed since Exp 9.
+
+### Investigation
+
+Git archaeology on `app/api/generate-flow/route.ts` and
+`lib/validators/path.ts` identified the regression window:
+
+| Commit | Date | What changed | Effect |
+|---|---|---|---|
+| `505662e` | 2026-04-19 | Data-flow prompt snapshot — **PEAK config** | 8.7/10 (Exp 8 baseline preserved) |
+| `e3a7339` | 2026-04-19 | Wired `validatePath` + `buildPathRepromptFeedback` into 3-retry loop | **Regression** — paths ballooned to 15 |
+| `b8c3080` | 2026-04-19 | Added MAX_STEPS=15 truncation cap | Bandaid for symptom, not cause |
+| `86ab23e` | 2026-04-19 | Word-boundary fix for "promotion"→"prompt" false positive | Another bandaid for a problem the retry loop created |
+
+`path.ts:319-326` code comment already admits the damage: *"paths ballooned
+from ~8 (data-flow baseline, 9/10) to ~15 (5-6/10) because the model read
+violations as 'be more thorough'."*
+
+### Attempted fix A — reframe retry feedback ("fewer is better")
+
+Modified `buildPathRepromptFeedback` to say "Fewer, well-placed services
+is better than more" and pass `previousStepCount` for concreteness.
+
+**Result:** 15 → 12 services on the same prompt. Some improvement. But
+the semantic misfits remained:
+
+- `nemo-curator` included (it's for LLM *pre-training* data prep — we're
+  doing RAG over existing sources, NOT pre-training)
+- `nemo-retriever` absent (the single most essential service for a RAG
+  system)
+- Bare `tensorrt` + `cuda-toolkit` redundant alongside `tensorrt-llm`
+
+### Attempted fix B — reframe to "justify each, bias-neutral"
+
+User pushback: "Why mention fewer? It should take the decision of fewer
+or more depending on the use case." Correct — "fewer is better" is bias
+in the opposite direction of the original "be thorough" bias.
+
+Rewrote feedback to: *"Each service must be justified by the data flow —
+not by completeness, not by minimalism. For each service, ask: does it
+have concrete inputs from an upstream step and outputs consumed
+downstream? Keep what does. Remove what doesn't. Only add a service if a
+real data-flow gap requires it."*
+
+**Not yet re-tested** — paused to investigate whether the retry loop
+itself is the right architecture.
+
+### Analysis — the retry-loop asymmetry
+
+Cross-referenced with orchestrator trajectory data
+(`docs/test-results/orchestrator-trajectory-brev-fullpipeline.json`):
+
+| Stage | Ground truth available? | Iterative retry effect (observed) |
+|---|---|---|
+| 1 GoalSpec | No | **Hurts** — Exp 7: baseline wins 6/10 vs grounded 2/10 |
+| 2 Path | No | **Hurts** — Exp 8/9 peak 8.7 → regressed 5-6 post-validator |
+| 3 Notebook | **Yes** (code executes or errors) | **Helps** — codeError 5→2 over 5 iters |
+
+The asymmetry is architectural: retry feedback improves output only when
+the retry signal is factual. Stage 3 has `nbclient` execution errors —
+objective ground truth. Stages 1 & 2 have only synthetic validator
+signals, and the retry pressure pushes the model to over-correct rather
+than refine.
+
+### Verdict
+
+Self-improvement **is real** — but only for stages with ground truth.
+Applying it blindly to Stage 2 is what produced the regression. The path
+bloat is a symptom; the validator-in-retry-loop is the cause.
+
+### Recommendation
+
+Revert Stage 2 to the `505662e` config:
+
+1. In `app/api/generate-flow/route.ts`: remove the semantic retry branch
+   (the `validatePath(...) → semanticFeedback = buildPathRepromptFeedback(...) → continue` path).
+   Keep parse-failure / `finish=length` retries — those are mechanical,
+   not semantic.
+2. In `lib/validators/path.ts`: **keep the file**, but demote it from
+   retry-driver to warning-only observability. Log violations, surface
+   them to the UI, don't re-prompt on them.
+3. Leave Stage 3's retry loop intact — it works and the trajectory data
+   proves it.
+4. Re-measure Stage 2 on the same healthcare RAG prompt and compare
+   service count + service appropriateness against the Exp 8 baseline.
+
+### Peak Stage 2 system prompt (verbatim, for future reference)
+
+From `app/api/generate-flow/route.ts:40-57` at commit `505662e`:
+
+> You are a senior NVIDIA AI solutions architect. Produce a complete
+> production-ready implementation path using NVIDIA services for the
+> user's goal.
+>
+> A production-ready path covers the FULL lifecycle: data preparation,
+> model training/selection, optimization, serving, evaluation,
+> safety/compliance, and enterprise deployment. Do not skip stages — a
+> system that cannot be evaluated or monitored is not production-ready.
+>
+> Describe the DATA FLOW — what goes into each service and what comes
+> out. Every service must have clear inputs and outputs connecting it to
+> other services in the path. If a service cannot be placed in the data
+> flow with concrete inputs and outputs, do not include it.
+>
+> If the goal cannot be addressed with NVIDIA services, or if the input
+> is not a valid AI/ML goal, return verified: false.
+
+### Revert shipped and re-tested (2026-04-20)
+
+**Code changes:**
+
+- `app/api/generate-flow/route.ts`:
+  - Removed `semanticFeedback` variable and its injection into `userContent`
+  - Removed the `validatePath → buildPathRepromptFeedback → continue` branch from the retry loop
+  - Retry loop now fires ONLY on mechanical failures (truncated response, unparseable JSON, network errors)
+  - Dropped `buildPathRepromptFeedback` import
+  - Added load-bearing comment pointing to this experiment
+  - `validatePath` still runs post-generation as warning-only observability — violations are logged and surfaced to the UI, never fed back to the model
+- `lib/validators/path.ts`: unchanged; demoted in role, not deleted. The reframed (bias-neutral) `buildPathRepromptFeedback` is kept in the file for potential future use but no longer called by the Stage 2 route.
+
+**Re-test on the same healthcare clinical-decision-support prompt:**
+
+| Metric | Regression (pre-revert) | Fix A ("fewer is better") | Fix B (bias-neutral reframe) | **Post-revert (single call)** |
+|---|---|---|---|---|
+| Service count | 15 | 12 | 11 | **9** |
+| `nemo-retriever` present | no | no | **yes** | **yes** |
+| `nemo-curator` justified by data flow | no (pattern-match) | no (pattern-match) | no (pattern-match) | **yes — legit corpus de-ident role** |
+| Bare `tensorrt` redundant with `tensorrt-llm` | yes | yes | no | no |
+| `cuda-toolkit` as pipeline step | yes | yes | no | no |
+| Estimated rating | 5–6/10 | 6.5/10 | 7.5/10 | **~8.5/10** |
+
+**Post-revert path** (goal: HIPAA RAG clinical chatbot):
+
+1. NeMo Curator — clean + de-identify EHR and literature corpora
+2. NeMo Retriever — document extraction + RAG retrieval
+3. NeMo — LLM framework (the Retriever/Guardrails/Evaluator plug-in point)
+4. NeMo Guardrails — PHI/HIPAA safety rails
+5. NeMo Evaluator — accuracy / hallucination / citation measurement
+6. Model Optimizer — quantization path for the <2s latency SLO
+7. TensorRT-LLM — LLM inference engine
+8. Dynamo-Triton — serving with dynamic batching
+9. AI Enterprise — SLA-backed production platform
+
+Clean layer progression `framework → agent → serving → enterprise`.
+Every service has a data-flow justification. No redundant plumbing.
+No access-layer step (model's judgment call — defensible for a
+RAG-only chatbot).
+
+**Curator lesson (for future validator design):**
+The earlier critique "Curator is pre-training-only" was wrong in
+general — Curator is NVIDIA's text-cleaning pipeline, and
+de-identification + corpus cleaning is a legitimate production use.
+The data-flow prompt makes the model justify the service inline,
+which distinguishes real corpus-prep work from keyword-matched
+filler. A validator rule `nemo-curator in non-pretraining path →
+misfit` would have been a false-positive patch. The right discipline
+is: let the data-flow prompt force justification, then trust the
+justification.
+
+### Verdict — confirmed
+
+The retry-loop-on-synthetic-signals was the root cause of the
+regression. Removing it restored Exp 8 baseline quality on the first
+run without any other tuning. Hypothesis (retry helps only where
+ground truth exists) is confirmed by three independent datapoints:
+
+1. Stage 3 iterative fixing (codeError 5→2) — ground-truth signal, works
+2. Stage 2 validator retry — synthetic signal, regressed paths 8→15
+3. Stage 1 Exp 7 grounded-default — synthetic signal, regressed 6→2
+
+### Open questions (carry forward)
+
+- Stage 1 GoalSpec: does the "grounded default regressed" finding from
+  Exp 7 need a matching revert? Not verified whether the recommended
+  revert to baseline planner actually landed in current
+  `analyze-requirements` route. **TODO: audit `analyze-requirements`
+  for the same retry-on-synthetic-signal pattern Stage 2 had.**
+- Longer-term: move correctness into the catalog (services declare typed
+  consumes/produces), so path validation becomes deterministic graph
+  assembly instead of prompt-level rules. Deferred — may be the
+  durable fix that lets a validator-driven retry loop earn its keep
+  at Stage 2 by supplying factual signal instead of heuristic signal.
+
+---
+
+## Experiment 14: Orchestrator Loop on Frontend Output (2026-04-20)
+
+### Motivation
+
+Exp 13 confirmed Stage 2 revert works (9-service path, 8.5/10). A
+frontend-generated notebook was then downloaded and inspected. It had
+6 bugs (4 Python syntax errors, 1 hallucinated modelopt API, 1 broken
+Colang config). The question: does the Stage 3 self-heal orchestrator —
+which demonstrated codeError 5→2 on Brev — close these bugs on fresh
+frontend output when run locally?
+
+### Setup
+
+- Input: `docs/test-results/exp14-input.ipynb` (downloaded from frontend,
+  Stage 2 path: curator → retriever → nemo → guardrails → evaluator →
+  model-optimizer → tensorrt-llm → dynamo-triton → ai-enterprise;
+  GoalSpec: HIPAA clinical RAG chatbot, <2s latency)
+- Env: Windows 11, Python 3.12, nbclient 0.10, no GPU, no CUDA
+- Orchestrator: `scripts/self-improve-notebook.ts` with max=3 iters,
+  CELL_TIMEOUT=120s
+- Fix endpoint: local `/api/fix-notebook-cell` via Next dev server
+
+### Trajectory
+
+| Iter | code_ok | code_error | roots | cascades | latency |
+|---|---|---|---|---|---|
+| 1 | 2 / 11 | 9 | 7 | 2 | 137s |
+| 2 | **7 / 11** | 4 | 1 | 3 | 77s |
+| 3 | — | — | — | — | timeout on pip-install cell (env-limited) |
+
+**codeError: 9 → 4 in one iteration.** 7 of 7 fixable root-cause bugs
+closed. Matches the Brev trajectory shape (5→2) on a completely
+independent notebook.
+
+### Bugs caught and fixed
+
+All 6 bugs flagged in the pre-run review, plus 2 I missed:
+
+- Cell 3 `subprocess.check_call(..., stdin="""...""")` — wrong API ✓
+- Cell 9, 13, 17, 21 — Python syntax errors (unescaped newline in print,
+  broken line continuation, unterminated strings) ✓
+- Cell 15 `mtq.QuantizerConfig(...)` — would have been caught in iter 3
+  but never executed due to env timeout
+- **Missed in review:** Cell 7 — protobuf `MessageFactory.GetPrototype`
+  version-mismatch (requires protobuf ≤ 3.20 for the sentence-transformers
+  code path). Loop detected and fixed.
+
+### Env-boundary failures (not loop limits)
+
+- Cell 3 pip install stayed failing through iter 2 — the packages
+  (`nemo-toolkit`, `tensorrt-llm`, `faiss-gpu`) genuinely cannot be
+  installed on a Windows-no-GPU laptop. Would succeed on Brev or in a
+  GPU Docker image.
+- Cell 10 `OSError: No space left on device` — installer filled disk
+  with multi-GB CUDA packages.
+- Iter 3 cell 3 timed out — pip trying to compile nemo-toolkit from
+  source.
+
+These are environment issues, not model failures. On Brev (where
+everything installs cleanly) the trajectory would have continued.
+
+### Interpretation
+
+1. **Confirms Exp 13's ground-truth-asymmetry thesis end-to-end.** The
+   retry loop converges on stages with objective signals (execution
+   errors) while regressing on stages without (validator heuristics).
+2. **The loop works on frontend output, not just Brev-generated output.**
+   Previous evidence was one notebook from one environment; this is
+   independent evidence from a different run of the pipeline.
+3. **Wiring the orchestrator behind the `/api/generate-notebook` route
+   is the right next investment.** The frontend currently ships raw
+   Stage 3 output; wiring self-heal would close ~7 bugs per notebook.
+
+### Required to ship self-heal via frontend
+
+- Server-side Python execution environment (nbclient + base packages +
+  optional GPU). Options: a Docker sidecar, a long-running worker
+  process, or a Brev-hosted backend endpoint.
+- A preflight step that excludes cells pip-installing the NVIDIA stack
+  (those always need a real GPU env; not something the fix-pass can
+  resolve). Alternative: provide a pre-baked image where the stack is
+  already installed.
+
+### Deliverables
+
+- `docs/test-results/exp14-input.ipynb` — starting notebook
+- `docs/test-results/exp14-input.ipynb.iter1.ipynb` — post-exec iter 1
+- `docs/test-results/exp14-input.ipynb.iter1.patched.ipynb` — iter 1 fixes
+- `docs/test-results/exp14-input.ipynb.iter2.ipynb` — post-exec iter 2
+- `docs/test-results/exp14-input.ipynb.iter2.patched.ipynb` — iter 2 fixes
+- `docs/test-results/exp14-input.ipynb.final.ipynb` — final state
+- `docs/test-results/exp14-input.ipynb.trajectory.json` — metrics
+
+---
+
+## Experiment 15: Stage 1 Adversary-Loop Audit — Baseline vs Default on Vague Inputs (2026-04-20)
+
+### Motivation
+
+Exp 13 proved the retry-loop asymmetry thesis on Stage 2: feeding synthetic validator signals back into the model caused systematic over-emission. Exp 7 (months earlier) had already flagged the same pattern on Stage 1 — "baseline planner wins 6/10, grounded default wins 2/10" — but the revert was never confirmed in code. This experiment stress-tests the current production loop on the exact class of inputs it claims to help: **short, vague user prompts** where inference-from-sparse-signal is the whole point.
+
+### Method
+
+Two vague prompts, both run twice against `/api/analyze-requirements`:
+
+- **A (baseline):** `?draft=true` — planner only, no adversary loop
+- **B (loop):** default path — planner → (adversary → resolution) × 2, early-exit if draft already rich
+
+Prompts:
+- P0: `"chatbot for hospitals"`
+- P1: `"a tool to catch credit card fraud"`
+
+Outputs captured: `docs/test-results/exp15/prompt{0,1}-{A-baseline,B-loop}.json`.
+
+### Results
+
+**P0 "chatbot for hospitals":**
+
+| | A baseline | B loop | Delta |
+|---|---|---|---|
+| Latency | 53.0s | 510.6s | **9.6× slower** |
+| Perf goals | 5 | 9 | +4 |
+| Inferred reqs | 3 | 9 | +6 |
+| Domain | "Healthcare – Hospital Patient Engagement" | "Healthcare – Hospital IT" | softer |
+| Compliance | HIPAA, GDPR, **FDA SaMD**, SOC 2 | HIPAA, GDPR, HITECH | **dropped FDA SaMD + SOC 2** |
+| Latency target | **<2s** | ≤5s (95p) | **softened 2.5×** |
+| Accuracy target | **≥90% clinician-validated** | ≥80% MedMCQA | **softened 10pp** |
+
+**P1 "a tool to catch credit card fraud":**
+
+| | A baseline | B loop | Delta |
+|---|---|---|---|
+| Latency | 126.2s | 246.4s | 2.0× slower |
+| Perf goals | 4 | 5 | +1 |
+| Inferred reqs | 3 | 9 | +6 |
+| Compliance | PCI DSS, GDPR, **CCPA, PSD2** | PCI DSS, GDPR, AML/KYC, SOX | **dropped CCPA + PSD2**, added AML/KYC (good) + SOX (irrelevant for consumer fraud tool) |
+| Recall target | **≥95%** | ≥92% | softened 3pp |
+| Throughput target | **≥100k tx/s sustained** | (dropped) | **removed entirely** |
+| Latency target | ≤50ms (95p) | ≤8ms (95p) | tightened (good) |
+
+### Key findings
+
+1. **Loop trades ambition for breadth.** Both runs doubled or tripled inferred-requirements count while simultaneously softening the primary perf targets. The baseline's ambitious numbers (P0: 2s latency / 90% accuracy; P1: 95% recall / 100k tx/s throughput) were walked back in the loop output. This is the same failure mode as Exp 13: the model has no ground-truth signal distinguishing "my targets are realistic" from "my targets are too ambitious," so adversary pressure pushes toward generic hedging.
+
+2. **Loop drops critical compliance regimes.** P0 **lost FDA SaMD** — the single most important compliance surface for a clinical-advice chatbot — and lost SOC 2. P1 **lost CCPA and PSD2**, both real laws applicable to card-fraud tooling, and gained SOX, which is about financial reporting for public companies (not the consumer fraud-detection tool being scoped). The loop is not refining compliance, it is randomly resampling it.
+
+3. **Latency cost is large, on vague inputs specifically.** 9.6× slowdown on the shortest prompt — exactly the input class where the feature is supposed to earn its keep via inference-from-sparse-signal. The loop "earns" breadth on P0 in 510 seconds that a user would never wait for in a live flow.
+
+4. **This reproduces Exp 7.** Two years of re-investigation converge on the same answer the 10-use-case suite already produced. The loop's value proposition (adversary catches missing requirements) is real in principle but the validator signal is not strong enough to beat a well-prompted single-pass planner on vague inputs.
+
+### Verdict
+
+`?draft=true` (baseline-only) should be the **frontend default** for short user inputs. The adversary loop should be opt-in — exposed as an explicit "Deep analysis (slower)" toggle, or gated on input length ≥ N characters where the planner has enough material that the loop's breadth-adding behavior is additive rather than substitutive.
+
+This is a Stage 1 parallel to the Exp 13 Stage 2 revert: **retry-on-ground-truth improves quality; retry-on-synthetic-validator-signal regresses it**. Stage 3's execution-error loop (Exp 14) stays — it has real ground truth.
+
+### Deliverables
+
+- `docs/test-results/exp15/prompt0-A-baseline.json` — healthcare draft
+- `docs/test-results/exp15/prompt0-B-loop.json` — healthcare loop
+- `docs/test-results/exp15/prompt1-A-baseline.json` — fraud draft
+- `docs/test-results/exp15/prompt1-B-loop.json` — fraud loop
+- `docs/test-results/exp15/summary.txt` — side-by-side comparison
+- `scripts/exp15-summary.py` — comparison script (UTF-8 safe)
+
+### Next actions
+
+- Make `?draft=true` the default in the frontend call to `/api/analyze-requirements`.
+- Add a "Deep analysis" toggle in the sidebar that flips the flag off.
+- Keep the adversary route in the codebase — it is still useful for long/detailed prompts, just not for the vague ones we ship through the demo.
+
+---
+
 ## Change Log
 
 | Date | Change | Experiment |
@@ -1049,3 +1414,33 @@ OpenRouter free tier is a viable alternative for GoalSpec and path generation ($
 | 2026-04-17 | **Finding:** 8/12 grounding signals present — HIPAA context, de-identification, NeMo Pipeline import, `from_pretrained`, NeMoMicroservices SDK, eval metrics, env-var credentials all correctly used | Exp 12 |
 | 2026-04-17 | **Finding:** Phase 2 narrative partially honored — evaluation included, but explicit baseline/before-after cells still missing (model prefers single forward-train story) | Exp 12 |
 | 2026-04-17 | **Finding:** Phase 5 compliance injection works — HIPAA + de-identify appear in code without being in the service-path JSON, proved by GoalSpec flow-through | Exp 12 |
+| 2026-04-20 | Live frontend test (healthcare RAG prompt) produced 15-service bloated path — regression from Exp 8/9 peak | Exp 13 |
+| 2026-04-20 | Git archaeology: identified commit `505662e` as peak config (data-flow prompt, no retry loop) and `e3a7339` as regression trigger (wired validator into retry loop) | Exp 13 |
+| 2026-04-20 | Fix A tried — reframe retry feedback to "fewer is better" → 15→12 services but semantic misfits remain (Curator in RAG, no Retriever) | Exp 13 |
+| 2026-04-20 | Fix B tried — reframe to bias-neutral "justify each by data flow" (not yet re-tested) | Exp 13 |
+| 2026-04-20 | **Finding:** Retry-loop asymmetry — helps Stage 3 (ground-truth execution errors, codeError 5→2) but hurts Stages 1 & 2 (no ground truth; synthetic validator signals cause over-correction) | Exp 13 |
+| 2026-04-20 | **Recommendation:** Revert Stage 2 to `505662e` config — remove semantic retry branch, demote `validatePath` to warning-only observability. Keep Stage 3 retry loop intact. | Exp 13 |
+| 2026-04-20 | **Revert shipped** — `generate-flow/route.ts` retry loop now fires only on mechanical failures (truncated / unparseable JSON / network). `validatePath` runs post-generation as warning-only, never re-prompted. `buildPathRepromptFeedback` kept in library, no longer called. | Exp 13 |
+| 2026-04-20 | **Re-test confirmation** — same healthcare RAG prompt: 15 → 12 → 11 → **9 services** post-revert. Retriever present, Curator now data-flow-justified (legit de-ident role), no redundant tensorrt or cuda-toolkit. Path rating ~8.5/10 — matches Exp 8 baseline. | Exp 13 |
+| 2026-04-20 | **Finding:** Data-flow prompt + single call is peak Stage 2 architecture. Retry-on-synthetic-signals demonstrably regresses quality; retry-on-ground-truth (Stage 3 execution errors) demonstrably improves it. | Exp 13 |
+| 2026-04-20 | **Finding:** Earlier critique of "nemo-curator = pre-training only" was wrong — Curator is NVIDIA's text-cleaning pipeline, and corpus de-identification is a legitimate role. Data-flow prompt forces justification, so no validator rule needed. A `curator-in-non-pretrain-path` rule would have been a false-positive patch. | Exp 13 |
+| 2026-04-20 | **TODO:** Audit Stage 1 `analyze-requirements` for the same retry-on-synthetic-signal pattern — Exp 7 already showed baseline beat grounded-default 6/10 to 2/10; unclear if that revert landed. | Exp 13 |
+| 2026-04-20 | Ran CLI orchestrator (`scripts/self-improve-notebook.ts`) locally against frontend-generated healthcare-RAG notebook (Windows, no GPU) | Exp 14 |
+| 2026-04-20 | **Finding:** Orchestrator closed 7 of 7 fixable root-cause bugs in iter 1; codeError 9 → 4 (code_ok 2 → 7) | Exp 14 |
+| 2026-04-20 | **Finding:** Bugs caught match Brev-trajectory pattern — Python syntax errors + API misuse + protobuf version mismatch all fixed by the self-heal loop | Exp 14 |
+| 2026-04-20 | **Finding:** Iter 3 failed on pip-install timeout — environment limit (no GPU, no CUDA), not loop limit. Loop converges when env can execute the NVIDIA stack. | Exp 14 |
+| 2026-04-20 | **Confirms:** Ground-truth asymmetry thesis (Exp 13) end-to-end on fresh independent data. Loop converges on stages with execution signal; regresses on stages without. | Exp 14 |
+| 2026-04-20 | **Next investment:** Wire orchestrator behind `/api/generate-notebook` route — current frontend ships raw Stage 3; self-heal would close ~7 bugs/notebook. Requires server-side Python exec env (Docker/worker/Brev-hosted backend). | Exp 14 |
+| 2026-04-20 | Ran Stage 1 A/B on two vague prompts: `?draft=true` (planner only) vs default adversary loop | Exp 15 |
+| 2026-04-20 | **Finding (P0 healthcare):** loop is 9.6× slower (53s → 511s), softens latency target 2s→5s, accuracy 90%→80%, and **drops FDA SaMD + SOC 2** from compliance | Exp 15 |
+| 2026-04-20 | **Finding (P1 fraud):** loop is 2× slower (126s → 246s), softens recall 95%→92%, **drops 100k tx/s throughput target entirely**, drops CCPA + PSD2, adds irrelevant SOX | Exp 15 |
+| 2026-04-20 | **Finding:** loop adds inferred-requirements breadth (3→9 both cases) but substitutes it *for* perf-target ambition and compliance precision — same retry-on-synthetic-signal pattern as Exp 13 | Exp 15 |
+| 2026-04-20 | **Finding:** reproduces Exp 7's "baseline wins 6/10" result on vague inputs specifically — the class where the loop should help most | Exp 15 |
+| 2026-04-20 | **Verdict:** `?draft=true` should be the frontend default for short user prompts. Adversary loop becomes opt-in ("Deep analysis" toggle) or length-gated. | Exp 15 |
+| 2026-04-20 | **Confirms end-to-end:** Stages 1 and 2 regress under synthetic-signal retry; Stage 3 improves under execution-signal retry. Retry-loop asymmetry thesis now validated across all three stages. | Exp 15 |
+| 2026-04-21 | Re-ran end-to-end pipeline on Brev self-hosted NIM (loop-default branch) with vague "chatbot for hospitals" input. Full review: `docs/test-results/exp17-brev-loop-notebook-review.md` | Exp 17 |
+| 2026-04-21 | **Finding (Stage 1):** loop on Brev produced 14 perf goals, 6 compliance frameworks, 9 inferred reqs from a 3-word input — 2–3× richer than same input on shared API. Suggests Exp 15's "loop regresses output" finding is shared-API-specific, not fundamental. | Exp 17 |
+| 2026-04-21 | **Finding (Stage 3):** validator-retry removal holds — single-pass, 20 cells, 5.5 min. No 27-min 5-cell regression. | Exp 17 |
+| 2026-04-21 | **Finding (Stage 3 quality):** 7/10. Real NGC model IDs, real cuDF/sklearn/MLflow/Triton config APIs. But hallucinated `rapids` + `nemo-collections-*` pip packages, NeMo services labeled but using HuggingFace/sklearn equivalents, cell 11 NameError from concatenated line, cell 19 `shutil.copy` on directory. | Exp 17 |
+| 2026-04-21 | **Finding (Stage 2 ordering bug):** Layer-sort places TensorRT (SDK layer) as step 1 even when it should be mid-pipeline (after training). Model's internal reasoning orders correctly; post-processing reorders incorrectly. Typed-catalog graph sort needed. | Exp 17 |
+| 2026-04-21 | **Next investment:** (a) Stage 2 typed service catalog with consumes/produces ordering. (b) Blueprint-grounded Stage 3 to replace 7 generated cells with parameterized blueprint code. (c) Self-heal on Brev behind `/api/generate-notebook`. | Exp 17 |

@@ -27,8 +27,11 @@ interface EcosystemGraphProps {
   activeStepIndex: number;
   onHoverService: (service: Service | null) => void;
   onClickService: (service: Service) => void;
-  /** Layer to zoom into (set from layer-header hover in page.tsx) */
+  /** Layer to zoom into (set from layer-header click in page.tsx) */
   focusLayer?: Layer | null;
+  /** Currently-clicked service in explore mode — receives the perimeter
+   *  glow. Ignored outside explore mode. */
+  selectedServiceId?: string | null;
 }
 
 // ── Fixed layout coordinates ──────────────────────────────────────────────────
@@ -98,6 +101,7 @@ function GraphInner({
   onHoverService,
   onClickService,
   focusLayer,
+  selectedServiceId,
 }: EcosystemGraphProps) {
   const { fitView } = useReactFlow();
 
@@ -149,9 +153,11 @@ function GraphInner({
     return NVIDIA_SERVICES.map((service) => {
       const inWorkflow    = workflowNodeIds.includes(service.id);
       const isHighlighted = activeWorkflow !== null && inWorkflow;
-      const isDimmed =
-        mode === 'initial' ||
-        (activeWorkflow !== null && !inWorkflow);
+      // Only dim services when there is an active workflow and this
+      // service is outside the path. Initial mode (AI path generator,
+      // before any plan is generated) now shows the full ecosystem
+      // at full brightness — helps the user browse what's available.
+      const isDimmed = activeWorkflow !== null && !inWorkflow;
       const isActiveStep =
         activeWorkflow !== null &&
         activeWorkflow.steps[activeStepIndex]?.serviceId === service.id;
@@ -164,6 +170,7 @@ function GraphInner({
         isDimmed:       mode === 'explore' ? false : isDimmed,
         isActiveStep,
         isExploreMode:  mode === 'explore',
+        isSelected:     selectedServiceId === service.id,
         focusLayer:     focusLayer ?? null,
         onHover:        handleNodeHover,
         onMouseMove:    handleNodeMouseMove,
@@ -182,7 +189,7 @@ function GraphInner({
     });
   }, [
     mode, activeWorkflow, activeStepIndex, workflowNodeIds,
-    focusLayer, handleNodeHover, handleNodeMouseMove,
+    focusLayer, selectedServiceId, handleNodeHover, handleNodeMouseMove,
   ]);
 
   // ── Edges ──────────────────────────────────────────────────────────────────
@@ -228,7 +235,9 @@ function GraphInner({
           workflowNodeIds.includes(service.id) && workflowNodeIds.includes(targetId);
 
         let opacity: number;
-        if (mode === 'initial')       opacity = 0.12;
+        // Initial mode used to dim edges to 0.12; now matches explore so
+        // the un-dimmed services aren't floating disconnected in the view.
+        if (mode === 'initial')       opacity = 0.28;
         else if (mode === 'explore')  opacity = 0.28;
         else if (wfEdge)              opacity = 1;
         else if (bothVisible)         opacity = 0.18;
