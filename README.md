@@ -1,4 +1,4 @@
-# NVIDIA SDK ORCHESTRATOR
+# NVIDIA SDK ORCHESTRATOR -v2
 
 > An interactive graph that maps NVIDIA's entire AI product stack — describe your goal in plain English and Nemotron AI generates the exact step-by-step path and generates an Notebook to get started with. (New system updates underway)
 
