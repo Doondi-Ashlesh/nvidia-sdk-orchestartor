@@ -1,0 +1,26 @@
+dataset:
+  ground_truth_field: ground_truth
+  path: clinician_test_set.json
+  question_field: question
+  sources_field: sources
+metrics:
+- precision_at_1
+- f1_score
+- latency
+- phi_leakage
+model:
+  endpoint: localhost:8000
+  model_name: medical_chatbot
+  type: triton
+phi_detection:
+  enabled: true
+  patterns:
+  - SSN
+  - MRN
+  - DATE
+  - NAME
+thresholds:
+  f1_score: 0.88
+  latency_ms: 2000
+  phi_leakage: 0
+  precision_at_1: 0.9

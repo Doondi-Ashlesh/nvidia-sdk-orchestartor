@@ -1,0 +1,64 @@
+autoscaling:
+  enabled: true
+  maxReplicas: 10
+  minReplicas: 2
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+env:
+- name: NVIDIA_API_KEY
+  valueFrom:
+    secretKeyRef:
+      key: key
+      name: nvidia-api-key
+image:
+  pullPolicy: IfNotPresent
+  repository: nvcr.io/nvidia/tritonserver
+  tag: 24.05-py3
+livenessProbe:
+  httpGet:
+    path: v2/health/ready
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+nodeSelector:
+  nvidia.com/gpu.present: 'true'
+readinessProbe:
+  httpGet:
+    path: v2/health/ready
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+replicaCount: 3
+resources:
+  limits:
+    nvidia.com/gpu: 1
+  requests:
+    cpu: 500m
+    memory: 1Gi
+    nvidia.com/gpu: 1
+service:
+  port: 8000
+  type: LoadBalancer
+tolerations:
+- effect: NoSchedule
+  key: nvidia.com/gpu
+  operator: Exists
+volumeMounts:
+- mountPath: /models
+  name: model-repo
+  subPath: ''
+- mountPath: /logs
+  name: audit-logs
+volumes:
+- hostPath:
+    path: /opt/triton_repo
+    type: Directory
+  name: model-repo
+- name: audit-logs
+  persistentVolumeClaim:
+    claimName: triton-audit-logs
