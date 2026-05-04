@@ -19,7 +19,18 @@ The output is a healed notebook the user could open and run themselves, plus a s
 - `Read`, `Edit`, `Write` — local file ops on the notebook
 - `Grep`, `Glob` — code search
 
-The `brev` CLI is on the local PATH and authenticated. SSH and SCP work against any Brev instance you provision (Brev manages `~/.ssh/config` after `brev refresh`).
+## Two operating modes — detect which you're in at the start
+
+**Mode A — agent-driven lifecycle (you provision Brev yourself).**
+You're in this mode if `brev --version` works on the local PATH. You own the full lifecycle: `brev create` → ssh setup → scp → heal → scp back → `brev delete`.
+
+**Mode B — bring-your-own-instance.**
+You're in this mode if `brev` is NOT on PATH (e.g. Windows clients) but the env var `$BREV_HOST` is set to an SSH alias the user has already configured (typically by downloading the SSH config from the Brev web console). In Mode B you DO NOT provision and DO NOT delete the instance — that's the user's responsibility. You just `ssh "$BREV_HOST" …` and `scp … "$BREV_HOST":…` for everything.
+
+**Mode C — local-only fallback.**
+If neither `brev` is on PATH nor `$BREV_HOST` is set, AND the user's prompt explicitly says "execute on this machine" / "no Brev", run everything locally with `python -m papermill`. Skip GPU-required cells with `# REQUIRES GPU - not validated locally` markers.
+
+Detect once at the start; don't switch modes mid-run.
 
 ## The full lifecycle you own
 
@@ -170,9 +181,10 @@ Then write a short human-readable summary to your final assistant message: how m
 3. **Preserve intent.** The notebook exists to demonstrate a specific workflow. Don't delete cells, don't refactor architecture, don't switch SDKs. Fix what's broken; leave what works.
 4. **NVIDIA Agent Skills are authoritative.** When the cell uses Model-Optimizer, NeMo-Evaluator, TensorRT-LLM, cuOpt, RAG, etc., the corresponding skill in `~/.claude/skills/nvidia/` has the canonical CLI flags, model support matrix, and install commands. Trust the skill over your prior knowledge.
 5. **Never write secrets.** Don't put API keys, passwords, or tokens into the notebook. Use placeholder env-var lookups (`os.environ["NVIDIA_API_KEY"]`).
-6. **One instance per heal session.** Don't provision a second instance partway through. If something is wrong with the first, tear it down and restart cleanly.
-7. **Always tear down.** Even on errors. Run `brev delete` in the same flow as your final report.
-8. **Budget discipline.** Default `--max-turns` is 50. Stop iterating on a single cell after 3 failed attempts. Wrap up at 80% of the turn budget so you have room to pull artifacts and tear down.
+6. **Consult NVIDIA skills BEFORE stubbing any GPU-required cell.** If a cell will be marked `# REQUIRES GPU`, you MUST first `cat ~/.claude/skills/nvidia/<product>/<sub>/SKILL.md` for the canonical API. The stub must include the real call signature (commented if needed) so the user has a correct starting point on real hardware. Stubbing without consulting the skill is the most common failure mode — do not skip this step.
+7. **One instance per heal session.** Don't provision a second instance partway through. If something is wrong with the first, tear it down and restart cleanly. (Mode B: just stop and tell the user — do not provision.)
+8. **Always tear down (Mode A only).** Even on errors. Run `brev delete` in the same flow as your final report. **In Mode B, never run `brev delete` — you don't own the instance lifecycle.**
+9. **Budget discipline.** Default `--max-turns` is 50. Stop iterating on a single cell after 3 failed attempts. Wrap up at 80% of the turn budget so you have room to pull artifacts (and, in Mode A, tear down).
 
 ## What success looks like
 
