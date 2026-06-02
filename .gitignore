@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template MUST be committed (no secrets, documents required vars)
+!.env.example
 
 # vercel
 .vercel
@@ -46,6 +48,47 @@ docs/*.mov
 docs/*.avi
 docs/*.mkv
 docs/*.webm
+
+# ── V2: heavy/ephemeral artifacts — reproducible, never commit ───────────
+# Model weights, indexes, and serialized state produced by verification runs.
+**/fine_tuned_model/
+**/quantized_model/
+**/results/
+**/triton_repo/
+**/engine/
+*.faiss
+*.pkl
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Local vector store (Milvus Lite)
+data/milvus_lite.db
+data/*.db
+
+# Notebook execution byproducts from the heal loop
+**/*.executed.ipynb
+**/*.iter*.ipynb
+**/*.patched.ipynb
+**/*.heal-report.json
+**/*.trajectory.json
+**/run0.ipynb
+
+# Personal interview-prep material — not product artifacts
+docs/INTERVIEW_*.md
+docs/INTERVIEW_*.docx
+docs/SETH_INTERVIEW_*.md
+docs/SETH_INTERVIEW_*.docx
+
+# Throwaway/debug scripts
+scratch/
+**/_*.py
+
+# Claude Code worktrees + local session state
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
 
 # Embedded git repos from other Claude sessions (worktrees)
 .claude/worktrees/

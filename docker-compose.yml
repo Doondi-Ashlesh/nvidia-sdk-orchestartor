@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────────────────
+# SDK Orchestrator — local free-tier stack (V2)
+#
+#   docker compose up -d
+#
+# Brings up the supporting services the orchestrator needs locally, all free:
+#   - postgres   : pipeline + job state
+#   - redis      : per-session conversation memory
+#   - phoenix    : OpenTelemetry agent/LLM tracing UI (http://localhost:6006)
+#
+# NOT here on purpose:
+#   - Nemotron generation  -> hosted NIM (build.nvidia.com), no local GPU
+#   - Vector store         -> Milvus Lite (embedded, file-backed, no container)
+#   - Notebook verification-> ephemeral Brev GPU (the compute budget)
+#
+# This stack runs on a laptop at $0. The only paid compute is Brev, and that
+# is provisioned on-demand per verification run, never via this file.
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: orchestrator-postgres
+    environment:
+      POSTGRES_USER: orchestrator
+      POSTGRES_PASSWORD: orchestrator
+      POSTGRES_DB: orchestrator
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orchestrator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: orchestrator-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "60", "1", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: orchestrator-phoenix
+    ports:
+      - "6006:6006"   # UI + OTLP HTTP collector
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenixdata:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  # ── Opt-in: standalone Milvus (only when the blueprint corpus outgrows
+  #    Milvus Lite — roughly >100k vectors). Uncomment to enable.
+  #    Default is Milvus Lite (embedded, no container) via MILVUS_URI. ──────
+  # milvus:
+  #   image: milvusdb/milvus:v2.4-standalone
+  #   container_name: orchestrator-milvus
+  #   command: ["milvus", "run", "standalone"]
+  #   environment:
+  #     ETCD_USE_EMBED: "true"
+  #     COMMON_STORAGETYPE: local
+  #   ports:
+  #     - "19530:19530"
+  #   volumes:
+  #     - milvusdata:/var/lib/milvus
+
+volumes:
+  pgdata:
+  redisdata:
+  phoenixdata:
+  # milvusdata:

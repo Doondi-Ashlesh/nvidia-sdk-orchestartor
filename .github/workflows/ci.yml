@@ -1,0 +1,51 @@
+# CI for the SDK Orchestrator (V2)
+#
+# Runs on every PR targeting v2 and on pushes to v2.
+# Deliberately does NOT run on master — master is the frozen V1 visualizer.
+#
+# Free-tier GitHub Actions. No GPU, no secrets, no network LLM calls:
+# the pipeline's network calls are gated behind LLM_REPLAY in test mode so CI
+# never spends NIM credits or Brev compute.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [v2]
+  push:
+    branches: [v2]
+
+# Cancel in-progress runs for the same branch when a new commit lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build must succeed without live credentials. Routes read config
+          # lazily at request time, so a placeholder key is enough to compile.
+          NVIDIA_API_KEY: ci-placeholder-key
+          NIM_BASE_URL: https://integrate.api.nvidia.com/v1
