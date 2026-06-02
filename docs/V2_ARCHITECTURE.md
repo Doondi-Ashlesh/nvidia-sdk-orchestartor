@@ -4,123 +4,178 @@
 >
 > **Owner:** Doondi. **Architecture authority:** Lead SA review (this doc).
 >
-> This document is the single source of truth for what V2 is, why each
-> decision was made, and how it gets built inside the budget. If you are
-> picking this up cold, read this first.
+> Read this first. It is the single source of truth for what V2 is, why each
+> decision was made, and how it gets built inside the budget.
 
 ---
 
-## 1. What V2 is
+## 1. What V2 is (the one-paragraph version)
 
-V1 (on `master`) is a visualizer: it shows NVIDIA's service graph and highlights a path.
+A **NeMo Agent Toolkit agent that tailors an NVIDIA AI Blueprint to a user's
+use case and verifies it on real GPU — fronted by a visualizer that turns the
+result into something a user can actually understand.** The agent is the
+engine. The visualizer is the product. A structured *architecture manifest* is
+the contract between them: every service node in the graph links to the
+notebook cells that implement it and carries a "runs on real GPU" badge.
 
-V2 turns a vague product goal into a **verified, deployment-ready Jupyter notebook** for the NVIDIA AI stack, built on the NVIDIA stack itself. Four stages plus a harness:
+V1 (on `master`) showed a service graph and guessed a path. V2 shows the
+architecture an agent actually **built and verified**, with every node linked
+to runnable code.
 
-1. **GoalSpec** — vague goal → structured spec with measurable targets
-2. **Service path** — spec → ordered NVIDIA service path
-3. **Notebook** — path → 30-cell notebook grounded in NVIDIA AI Blueprints
-4. **Verification** — notebook executed on real GPU, healed until it runs
+## 1a. Why this shape (the critique that drove it)
+
+The feedback that reshaped this project: *"why build your own harness instead
+of using an existing one?"* It was correct. The earlier design reinvented
+orchestration — a bespoke 4-stage pipeline, custom validators-as-orchestration,
+a custom heal loop — to do what coding-agent harnesses already do well: read a
+reference, tailor it, run it, fix what breaks.
+
+NVIDIA's own blueprints don't do that. AI-Q is an agent given tools + reference
+docs. Retail Agentic Commerce is NAT agents given a catalog + tools. The
+idiomatic NVIDIA pattern is **agents with good grounding and good tools**, not
+bespoke pipelines. V2 adopts that pattern. The harness *is* NeMo Agent Toolkit;
+we configure an agent, we don't build a framework.
+
+**What makes V2 impressive is not complexity — it's that it uses the right
+tool, grounds on NVIDIA's own blueprints, verifies on real GPU, and teaches the
+user through the visualizer. That is a stronger story than the pipeline, and
+less to build.**
 
 ---
 
 ## 2. The binding constraint: budget
 
-Total compute budget is **free tier + $420 of Brev**. This single constraint drives the entire architecture.
+Total compute budget is **free tier + $420 of Brev**. This single constraint
+drives the architecture.
 
 ### The decision that makes the budget work
 
-**Generation does NOT run on self-hosted Brev.** Self-hosting Nemotron 120B on 2×H100 NVL is ~$120/day — it burns $420 in ~3.5 days. Instead:
+Generation does **not** run on a continuously-warm self-hosted model
+(~$120/day burns $420 in days). Instead:
 
-- **Generation → hosted NIM** at build.nvidia.com (free credits). $0 compute.
-- **Brev compute → reserved exclusively for ephemeral notebook verification.**
+- **Generation → hosted NIM** (build.nvidia.com, free credits)
+- **Brev compute → reserved for ephemeral notebook verification only**
+- **Eval → self-hosted scale-to-zero Brev** (only when determinism matters;
+  ~$0.85/run, ~$42 for 50 runs)
 
-Once generation is off owned compute, $420 is generous, not scarce.
+The long-call timeout that originally drove self-hosting (managed NIM's 15-min
+cliff on the monolithic notebook generation) is fixed *architecturally*: the
+agent generates **section by section**, so no single call is long. We get free
+hosting and robustness from the same change.
 
 ### Budget allocation
 
 | Workload | Where | Cost |
 |---|---|---|
-| Generation (Nemotron 120B) | Hosted NIM | $0 |
-| Embeddings + rerank | Hosted NIM | $0 |
-| Guardrails, eval, orchestration | Local / Vercel free | $0 |
+| Generation (Nemotron 120B), section-decomposed | Hosted NIM | $0 |
+| Embeddings + rerank (blueprint selection) | Hosted NIM | $0 |
+| Guardrails, eval orchestration, the agent itself | Local / Vercel free | $0 |
 | Vector store (Milvus Lite) | Embedded, file-backed | $0 |
 | Observability (Phoenix) | Local Docker | $0 |
-| App + UI | Vercel free tier | $0 |
+| App + visualizer | Vercel free tier | $0 |
 | State + memory (Postgres, Redis) | Free tier / local Docker | $0 |
-| **Notebook verification (ephemeral GPU)** | **Brev** | **$420** |
+| Eval runs (determinism) | Self-hosted scale-to-zero Brev | ~$42 |
+| **Notebook verification (ephemeral GPU)** | **Brev (tiered)** | **bulk of $420** |
 
 ### Verification cost model (tiered)
 
-- **Tier-A "does it run"** — A10G (~$1/hr), ~15 min/run = **~$0.25/run**. Catches ~80% of failures.
-- **Tier-B "real hardware"** — H100 (~$3.50/hr), ~30 min/run = **~$1.75/run**. Only for GPU-required cells, only on explicit production-validation requests.
+- **Tier-A "does it run"** — A10G (~$1/hr), ~15 min = **~$0.25/run**. Catches ~80% of failures.
+- **Tier-B "real hardware"** — H100 (~$3.50/hr), ~30 min = **~$1.75/run**. GPU-required cells only, on explicit request.
 
-Projected total build + demo spend: **~$170 of the $420**, leaving runway.
+Projected build + demo spend: **~$170 of $420**, with runway to spare.
 
 ---
 
 ## 3. Target architecture
 
 ```
-UI (Next.js, Vercel free)
+   USE CASE (user goal)
         │
-ORCHESTRATION (NeMo Agent Toolkit)
+        ▼
+   SELECT — match use case → best NVIDIA blueprint
+        NeMo Retriever (hosted embed + rerank) over the blueprint catalog
         │
-SAFETY (NeMo Guardrails — input + output rails)
+        ▼
+   NAT AGENT — tailor + verify   (the engine)
+        grounded on the selected blueprint
+        tools:
+          - write_notebook        (Nemotron via hosted NIM, section by section)
+          - run_on_gpu            (ephemeral Brev; tiered A10G / H100)
+          - search_nvidia_skills  (github.com/NVIDIA/skills as grounding)
+          - check_compliance      (NeMo Guardrails)
+        loop: plan → tailor → execute on GPU → read traceback → fix → repeat
         │
-GENERATION (Nemotron 120B via hosted NIM, free)
+        ├──────────────► NOTEBOOK            (verified on real GPU)
         │
-GROUNDING (NeMo Retriever: hosted embed + rerank; Milvus Lite store)
+        └──────────────► ARCHITECTURE MANIFEST
+                          { services[], connections[], cellRefs,
+                            per-service verification }   (types/manifest.ts)
         │
-VALIDATION (AST + syntax + narrative — observability only)
-        │
-VERIFICATION (ephemeral Brev GPU — tiered A10G/H100, $420)
-        │
-EVAL (NeMo Evaluator + synthetic GoalSpec corpus)
-        │
-OBSERVABILITY (Phoenix) + STATE (Postgres) + MEMORY (Redis)
+        ▼
+   VISUALIZER (React Flow, Next.js)   (the product surface)
+        ├─ renders services as nodes, data flow as edges
+        ├─ click a node → highlight the notebook cells that implement it
+        └─ per-node verification badge (green = runs on real GPU)
 ```
 
-Every layer except the boxed verification layer is free tier.
+Three things the user sees: **the graph** (what), **the linked notebook**
+(how), **the verification badges** (proof). A complete teaching artifact.
+
+Every layer except the boxed verification step is free tier.
 
 ---
 
-## 4. Key decisions (and the rationale, so they don't get re-litigated)
+## 4. Key decisions (with rationale, so they don't get re-litigated)
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | Generation on hosted NIM, not self-hosted Brev | Cost. The single change that makes the budget viable. |
-| D2 | Brev reserved for ephemeral verification only, scale-to-zero | Cost. No warm GPU, ever. |
-| D3 | Tiered verification (A10G default, H100 on demand) | Stretches $420 ~7x vs H100-everything. |
-| D4 | Validators stay observability-only | Measured: re-prompting on validator output regressed quality (13-cell → 5-cell stub). Retry only on real execution errors. |
-| D5 | NeMo Retriever + Milvus Lite replaces the TS-file matcher | The TS file is not a retrieval system; won't scale, no ranking, no customer-asset ingestion. Milvus Lite is free + embedded. |
-| D6 | NeMo Guardrails on input + output | No safety layer = instant fail at enterprise security review. |
-| D7 | NeMo Evaluator + synthetic corpus for regression gating | Can't ship a system you can't regression-test. |
-| D8 | Deterministic heal loop Tier-1, Claude Code Tier-2 | Caps the external (Anthropic) dependency + cost to hard cases only. |
-| D9 | One repo, long-lived `v2` branch, `master` frozen | V2 reuses V1's catalog, prompts, UI shell. New repo would fragment for no benefit. |
-| D10 | Cutover by flipping Vercel Production Branch | One-click, reversible. Tag `v1-final` before the permanent `v2 → master` merge. |
+| D1 | NeMo Agent Toolkit is the harness; we configure an agent, not build a pipeline | Answers the "why your own harness" critique; the idiomatic NVIDIA pattern |
+| D2 | The visualizer is the product surface, not a vestigial feature | It's the comprehension layer — the only thing that makes the output *teach* rather than just generate |
+| D3 | Agent emits an architecture manifest alongside the notebook | The contract that powers click-node→cells linkage and per-node verification badges |
+| D4 | Linkage at service granularity for V1; edge granularity is additive later | 90% of the comprehension value for 30% of the work; `implementingCell` field reserved |
+| D5 | Generation on hosted NIM, section-decomposed | Free; fixes the 15-min timeout via architecture not hosting; same model quality |
+| D6 | Brev reserved for ephemeral verification (tiered A10G/H100), scale-to-zero | Cost. No warm GPU ever. |
+| D7 | Eval on self-hosted scale-to-zero Brev | Determinism for reproducible eval; ~$42 affordable |
+| D8 | Blueprint selection via NeMo Retriever + Milvus Lite | Replaces the TS-file matcher; scales; free + embedded |
+| D9 | Real-GPU execution is the verification — not static validators | Ground-truth execution beats static analysis (the validated insight, now expressed through the agent's loop) |
+| D10 | Next.js becomes UI/visualizer only; orchestration re-platforms onto NAT (Python) | Makes "built on NeMo Agent Toolkit" true; UI survives, backend logic ports |
+| D11 | Strangler migration, not big-bang | Always-shippable; migrate stage by stage; demo progress throughout |
+| D12 | One repo, long-lived `v2` branch, `master` frozen; cutover by Vercel branch flip | Reuses V1 catalog/UI; reversible cutover |
 
-### Explicitly deferred (named so scope is clear)
+### What this rescues from prior work (nothing wasted)
 
-| Deferred | Why | Returns when |
-|---|---|---|
-| Multi-tenancy | No budget for per-tenant infra | A funding partner needs it |
-| Self-hosted NIM | Burns budget | Volume exceeds free credits |
-| NemoClaw governance | Enterprise tier, over-engineering now | Regulated-environment customer |
-| Dynamo serving | Pays off at multi-instance scale only | Generation volume justifies it |
-| Fine-tuning Nemotron | No signal prompting+grounding is saturated | Eval shows grounding ceiling |
+| Prior artifact | Fate |
+|---|---|
+| Visualizer (React Flow UI) | **Core of V2** — gets better via notebook linkage |
+| Service-path / data-flow logic | **Reborn as the architecture manifest** (types/manifest.ts) |
+| Blueprint catalog | **The grounding corpus** |
+| NVIDIA stack components (NIM, Retriever, Guardrails) | **The agent's tools/config** |
+| Real-GPU verification concept | **Feeds per-node verification badges** |
+| Custom validators-as-orchestration + bespoke heal loop | **Dropped** — the agent's loop replaces them (the reinvention the feedback flagged) |
+
+### Explicitly deferred (scope clarity)
+
+Multi-tenancy · self-hosted NIM at volume · NemoClaw governance · Dynamo
+serving · fine-tuning Nemotron · edge-granularity linkage. Each returns when a
+specific trigger (funding partner, volume, regulated customer, measured
+ceiling) justifies it.
 
 ---
 
-## 5. Build phases
+## 5. Build phases (strangler — always shippable)
 
 | Phase | Scope | Cost |
 |---|---|---|
-| **0 — Foundation** | repo hygiene, docker-compose, CI, `.env.example`, this doc, hosted-NIM as documented default | $0 |
-| **1 — Generation on NIM** | port Stage 1–3 to hosted NIM, wrap in NAT, constrained decoding | $0 |
-| **2 — Grounding** | NeMo Retriever + Milvus Lite, ingest blueprint catalog, customer-asset path | $0 |
-| **3 — Safety + validation** | NeMo Guardrails (Colang rails), validators → Phoenix spans | $0 |
-| **4 — Verification** | ephemeral Brev, tiered A10G/H100, budget circuit breaker, audit trail | **$420** |
-| **5 — Eval + hardening** | synthetic corpus, NeMo Evaluator in CI, Phoenix dashboards, cost meter | $0 |
+| **0 — Foundation** ✅ | repo hygiene, docker-compose, CI, `.env.example`, this doc, manifest schema | $0 |
+| **1 — NAT skeleton + selection** | stand up `nat serve`; blueprint selection via NeMo Retriever; emit a manifest from the existing path logic | $0 |
+| **2 — Agent tailoring** | the tailor+verify agent; section-decomposed generation; writes notebook + manifest with cellRefs | $0 |
+| **3 — Verification tool** | `run_on_gpu` as a NAT tool: ephemeral Brev, tiered, budget circuit breaker, fills verification badges | **Brev** |
+| **4 — Visualizer rewire** | Next.js renders the manifest; click-node→cells; verification badges; calls `nat serve` | $0 |
+| **5 — Safety + eval + hardening** | NeMo Guardrails as agent tool; `nat eval` + synthetic corpus; Phoenix dashboards; cost meter | $0 |
+
+Strangler detail: the existing TS API routes keep serving until each capability
+is live on NAT. The visualizer points at NAT for migrated pieces, TS for the
+rest, until cutover.
 
 ---
 
@@ -128,14 +183,15 @@ Every layer except the boxed verification layer is free tier.
 
 Sign-off requires ALL of:
 
-1. Generation-success rate ≥ 95% on the synthetic eval corpus
+1. Blueprint selection picks the right reference ≥ 90% on the eval set
 2. Verified cell-pass rate ≥ 85% on Tier-A (measured, not claimed)
-3. Cost-per-verified-notebook < $2, visible on every request
-4. Zero leaked Brev instances across 100 consecutive runs
-5. Every prompt change gated by CI eval — no blind merges
-6. Clean enterprise security-review checklist (secrets, sandboxing, audit trail, I/O safety)
-7. One external person can run the full stack from the repo with no tribal knowledge
-8. Total Brev spend for build + demo under $420 with documented headroom
+3. Every service node in the manifest links to ≥1 real notebook cell (no orphan nodes)
+4. Cost-per-verified-notebook < $2, visible on every request
+5. Zero leaked Brev instances across 100 consecutive runs
+6. Every agent/prompt change gated by `nat eval` in CI — no blind merges
+7. Clean enterprise security-review checklist (secrets, sandboxing, audit trail, I/O safety)
+8. One external person can run the full stack from the repo with no tribal knowledge
+9. Total Brev spend for build + demo under $420 with documented headroom
 
 ---
 
@@ -143,10 +199,10 @@ Sign-off requires ALL of:
 
 | Control | Implementation |
 |---|---|
-| No secrets in generated code | AST scan on every notebook output + output-guardrail redaction |
+| No secrets in generated code | AST scan on notebook output + output-guardrail redaction |
 | No live customer creds in pipeline | Notebooks use env-var placeholders; creds resolved only in customer runtime |
 | Sandboxed execution | Verification on ephemeral, isolated Brev instances; torn down after |
-| Audit trail | Every run produces a secrets-scrubbed runbook + heal-report |
+| Audit trail | Every run produces a secrets-scrubbed runbook + manifest + heal report |
 | Input safety | Guardrails block PII / injection / off-topic pre-model |
 | Output safety | Guardrails redact + enforce compliance markers pre-delivery |
 | Reproducibility | AI Workbench `spec.yaml` output for customer-side reproduction |
@@ -157,8 +213,10 @@ Sign-off requires ALL of:
 
 | Risk | Mitigation |
 |---|---|
-| Free NIM credits exhausted mid-build | Prompt prefix caching; $420 has headroom for a short paid-NIM window |
+| Free NIM credits exhausted mid-build | Prompt prefix caching; $420 headroom covers a short paid-NIM window |
 | Brev instance leak | try/finally teardown + hourly reaper cron + 75% spend alert |
-| Verification pass rate too low to be credible | Tiered verification + heal loop; publish an honest target (85%), don't oversell |
+| Agent wanders / non-deterministic output | NAT Phoenix tracing + `nat eval` gates; bounded turns + budget cap |
+| Verification pass rate too low to be credible | Tiered verification + heal loop; publish an honest target (85%) |
 | Notebooks depend on unavailable external systems | Mark `REQUIRES EXTERNAL SYSTEM`, validate the stub, never silently fake |
+| Manifest/notebook drift (cellRefs point at wrong cells) | Agent tags cells with `service_id` at write time; validated against manifest before render |
 | Single-person bus factor | Phase 0 IaC + CI + this doc; anyone can `docker compose up` + run eval |
