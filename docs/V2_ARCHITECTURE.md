@@ -136,7 +136,7 @@ Every layer except the boxed verification step is free tier.
 | D5 | Generation on hosted NIM, section-decomposed | Free; fixes the 15-min timeout via architecture not hosting; same model quality |
 | D6 | Brev reserved for ephemeral verification (tiered A10G/H100), scale-to-zero | Cost. No warm GPU ever. |
 | D7 | Eval on self-hosted scale-to-zero Brev | Determinism for reproducible eval; ~$42 affordable |
-| D8 | Blueprint selection via NeMo Retriever + Milvus Lite | Replaces the TS-file matcher; scales; free + embedded |
+| D8 | **Retrieval is core, not optional.** NeMo Retriever + Milvus Lite is the grounding backbone over a large heterogeneous corpus (blueprints + NVIDIA docs + skills catalog + code patterns + customer references) | Real use cases ground an agent over a large, growing, customer-extensible corpus — definitionally a retrieval problem. The blueprint *count* was never the variable; the *corpus* is. Deterministic service-overlap survives only as a minor re-ranking signal for blueprint selection. Prior experiments are reference, not drivers. |
 | D9 | Real-GPU execution is the verification — not static validators | Ground-truth execution beats static analysis (the validated insight, now expressed through the agent's loop) |
 | D10 | Next.js becomes UI/visualizer only; orchestration re-platforms onto NAT (Python) | Makes "built on NeMo Agent Toolkit" true; UI survives, backend logic ports |
 | D11 | Strangler migration, not big-bang | Always-shippable; migrate stage by stage; demo progress throughout |
