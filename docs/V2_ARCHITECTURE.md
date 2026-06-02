@@ -96,14 +96,16 @@ Projected build + demo spend: **~$170 of $420**, with runway to spare.
         NeMo Retriever (hosted embed + rerank) over the blueprint catalog
         │
         ▼
-   NAT AGENT — tailor + verify   (the engine)
+   NAT AGENT — tailor + verify   (the engine — Nemotron-driven, fully NVIDIA)
         grounded on the selected blueprint
         tools:
+          - search_corpus         (NeMo Retriever over Milvus Lite)
           - write_notebook        (Nemotron via hosted NIM, section by section)
           - run_on_gpu            (ephemeral Brev; tiered A10G / H100)
           - search_nvidia_skills  (github.com/NVIDIA/skills as grounding)
           - check_compliance      (NeMo Guardrails)
         loop: plan → tailor → execute on GPU → read traceback → fix → repeat
+        (Claude Code is a dev-time tool for building this; NOT in the product)
         │
         ├──────────────► NOTEBOOK            (verified on real GPU)
         │
@@ -141,6 +143,7 @@ Every layer except the boxed verification step is free tier.
 | D10 | Next.js becomes UI/visualizer only; orchestration re-platforms onto NAT (Python) | Makes "built on NeMo Agent Toolkit" true; UI survives, backend logic ports |
 | D11 | Strangler migration, not big-bang | Always-shippable; migrate stage by stage; demo progress throughout |
 | D12 | One repo, long-lived `v2` branch, `master` frozen; cutover by Vercel branch flip | Reuses V1 catalog/UI; reversible cutover |
+| D13 | **The verification agent is a NAT agent driven by Nemotron. Claude Code is a dev-time tool only, not a runtime component of the product.** | The product must be fully NVIDIA-stack to be credible as an NVIDIA reference architecture. Shipping Anthropic's Claude Code in the critical path contradicts the "use the NVIDIA harness, don't bolt on external things" thesis and is the first thing a senior NVIDIA reviewer flags. Claude Code helped *us* build/validate the heal loop; the *product* runs it as a NAT/Nemotron agent. |
 
 ### What this rescues from prior work (nothing wasted)
 
