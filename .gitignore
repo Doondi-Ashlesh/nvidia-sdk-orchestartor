@@ -101,3 +101,4 @@ service/**/__pycache__/
 service/*.egg-info/
 service/.venv/
 service/vectorstore.json
+service/out/
