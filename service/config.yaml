@@ -1,55 +1,19 @@
 # config.yaml — NeMo Agent Toolkit workflow for the SDK Orchestrator.
 #
-# Run:  nat run   --config_file config.yaml --input "<use case>"
-#       nat serve --config_file config.yaml          # HTTP service for the UI
+# Run:  nat run --config_file config.yaml --input "<use case>"
 #
-# Shape verified against nvidia-nat docs (functions / llms / embedders /
-# retrievers / workflow top-level keys). The `functions` + `workflow` blocks
-# are scaffolded for Increment 1B (the register_function glue), commented where
-# they depend on imports that must be pinned against the installed package.
+# PHASE 1 — function-as-workflow.
+# The workflow IS the select_blueprint function. It does its own NIM embedding
+# (nim.py) and retrieval (store.py, numpy backend), so NO NAT llms / embedders /
+# retrievers blocks are needed yet. `select_blueprint` is a registered workflow
+# type (see register.py + the nat.components entry point in pyproject.toml).
+#
+# PHASE 2 will reintroduce, when there are multiple tools to orchestrate:
+#   llms:        reasoner (nemotron-super) + classifier (nemotron-nano)
+#   workflow:    react_agent  — REQUIRES: pip install "nvidia-nat[langchain]"
+#                tool_names: [select_blueprint, write_notebook, run_on_gpu]
+# The react_agent type ships in the langchain integration package, not core nat.
 
-# ─── LLMs (role-specific per D5) ─────────────────────────────────
-llms:
-  reasoner:
-    _type: nim
-    model_name: nvidia/nemotron-3-super-120b-a12b
-    temperature: 0.0
-    max_tokens: 4096
-    chat_template_kwargs:
-      enable_thinking: true        # Nemotron reasoning mode
-
-  classifier:
-    _type: nim
-    model_name: nvidia/nemotron-3-nano-30b-a3b
-    temperature: 0.0
-    max_tokens: 512
-
-# ─── Embedder (grounding backbone, D8) ───────────────────────────
-embedders:
-  blueprint_embedder:
-    _type: nim
-    model_name: nvidia/nv-embedqa-e5-v5
-
-# ─── Retriever over the Milvus Lite blueprint collection ─────────
-# Points at the ./milvus.db produced by `python -m sdk_orchestrator.ingest`.
-retrievers:
-  blueprint_kb:
-    _type: milvus_retriever
-    embedder: blueprint_embedder
-    collection_name: blueprints
-    uri: ${MILVUS_URI:-./milvus.db}
-    top_k: 3
-
-# ─── Functions (Increment 1B — wired against nvidia-nat 1.7.0) ────
-# _type matches the `name=` on the FunctionBaseConfig in register.py.
-functions:
-  select_blueprint:
-    _type: select_blueprint
-    top_k: 3
-
-# ─── Workflow ────────────────────────────────────────────────────
 workflow:
-  _type: react_agent
-  llm_name: reasoner
-  tool_names: [select_blueprint]
-  verbose: true
+  _type: select_blueprint
+  top_k: 3
