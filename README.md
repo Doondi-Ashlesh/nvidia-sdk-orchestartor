@@ -1,4 +1,4 @@
-# NVIDIA AI Ecosystem Visualizer
+# NVIDIA AI SDK ORCHESTRATOR
 
 > An interactive graph that maps NVIDIA’s AI product stack — describe your goal in plain English and **NVIDIA NIM** (Nemotron) generates a step-by-step path through the ecosystem, grounded in official docs and optional skill retrieval.
 
