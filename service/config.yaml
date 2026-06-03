@@ -40,18 +40,16 @@ retrievers:
     uri: ${MILVUS_URI:-./milvus.db}
     top_k: 3
 
-# ─── Functions (Increment 1B — wired once imports are pinned) ─────
-# functions:
-#   select_blueprint:
-#     _type: sdk_orchestrator.select_blueprint   # registered in register.py
-#     retriever: blueprint_kb
-#   search_corpus:
-#     _type: sdk_orchestrator.search_corpus
-#     retriever: blueprint_kb
+# ─── Functions (Increment 1B — wired against nvidia-nat 1.7.0) ────
+# _type matches the `name=` on the FunctionBaseConfig in register.py.
+functions:
+  select_blueprint:
+    _type: select_blueprint
+    top_k: 3
 
-# ─── Workflow (Increment 1B) ─────────────────────────────────────
-# workflow:
-#   _type: react_agent
-#   llm_name: reasoner
-#   tool_names: [select_blueprint, search_corpus]
-#   verbose: true
+# ─── Workflow ────────────────────────────────────────────────────
+workflow:
+  _type: react_agent
+  llm_name: reasoner
+  tool_names: [select_blueprint]
+  verbose: true
