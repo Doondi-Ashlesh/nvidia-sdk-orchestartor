@@ -50,6 +50,29 @@ Rules:
 """
 
 
+def _extract_json(raw: str) -> dict:
+    """Parse JSON from model output, tolerating markdown fences / leading text.
+
+    json_mode usually returns clean JSON, but this is defensive: strips ```json
+    fences, and falls back to the outermost {...} block if a direct parse fails.
+    """
+    raw = raw.strip()
+    if raw.startswith("```"):
+        # ```json\n{...}\n```  ->  {...}
+        inner = raw.split("```", 2)
+        raw = (inner[1] if len(inner) > 1 else raw).removeprefix("json").strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        start, end = raw.find("{"), raw.rfind("}")
+        if start != -1 and end > start:
+            try:
+                return json.loads(raw[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+    return {}
+
+
 def _load_blueprint_text(blueprint_id: str) -> str:
     """Pull the blueprint's stored text from the vector store for grounding."""
     store = get_store()
@@ -96,7 +119,15 @@ def plan_architecture(use_case: str, blueprint_id: str | None = None) -> dict:
         json_mode=True,
         temperature=0.0,
     )
-    parsed = json.loads(raw)
+    parsed = _extract_json(raw)
+    if not parsed.get("services"):
+        # Surface what the model actually returned so we can diagnose rather
+        # than silently ship an empty architecture.
+        print(
+            f"[plan] WARNING: no services parsed. Raw model output (first 800 chars):\n"
+            f"{raw[:800]}",
+            file=sys.stderr,
+        )
 
     # 3. Validate service ids against the catalog; enrich with name + layer.
     services, dropped = [], []
