@@ -1,0 +1,70 @@
+"""Hosted-NIM clients — embeddings + chat over the OpenAI-compatible API.
+
+Per decision D5, generation runs on hosted NIM (build.nvidia.com) free tier,
+not self-hosted compute. NIM exposes the OpenAI API shape, so we use the
+standard `openai` client pointed at the NIM base URL.
+
+Env vars (see ../.env.example at repo root):
+  NVIDIA_NIM_API_KEY   — required; key from build.nvidia.com
+  NIM_BASE_URL         — default https://integrate.api.nvidia.com/v1
+  NIM_EMBED_MODEL      — default nvidia/nv-embedqa-e5-v5
+  NIM_RERANK_MODEL     — default nvidia/nv-rerankqa-mistral-4b-v3
+  NIM_REASONER_MODEL   — default nvidia/nemotron-3-super-120b-a12b
+"""
+
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+
+from openai import OpenAI
+
+DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
+DEFAULT_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
+DEFAULT_REASONER_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+
+
+def _require_key() -> str:
+    key = os.environ.get("NVIDIA_NIM_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "NVIDIA_NIM_API_KEY is not set. Get a free key at build.nvidia.com "
+            "and export it (see .env.example)."
+        )
+    return key
+
+
+@lru_cache(maxsize=1)
+def client() -> OpenAI:
+    """Singleton OpenAI-compatible client pointed at hosted NIM."""
+    return OpenAI(
+        base_url=os.environ.get("NIM_BASE_URL", DEFAULT_BASE_URL),
+        api_key=_require_key(),
+    )
+
+
+def embed(texts: list[str], model: str | None = None) -> list[list[float]]:
+    """Embed a batch of texts via the NIM embedding model.
+
+    Returns one vector per input text, order preserved.
+    """
+    model = model or os.environ.get("NIM_EMBED_MODEL", DEFAULT_EMBED_MODEL)
+    # NIM's embedqa models distinguish passage vs query; "passage" for corpus
+    # ingestion. The input_type extra is accepted by the NIM embeddings API.
+    resp = client().embeddings.create(
+        model=model,
+        input=texts,
+        extra_body={"input_type": "passage", "truncate": "END"},
+    )
+    return [d.embedding for d in resp.data]
+
+
+def embed_query(text: str, model: str | None = None) -> list[float]:
+    """Embed a single query string (input_type=query for asymmetric retrieval)."""
+    model = model or os.environ.get("NIM_EMBED_MODEL", DEFAULT_EMBED_MODEL)
+    resp = client().embeddings.create(
+        model=model,
+        input=[text],
+        extra_body={"input_type": "query", "truncate": "END"},
+    )
+    return resp.data[0].embedding

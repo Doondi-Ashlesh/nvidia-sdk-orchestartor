@@ -94,3 +94,9 @@ scratch/
 .claude/worktrees/
 
 # Local node_modules and build
+
+# V2 service (Python / NAT) — generated artifacts
+service/milvus.db
+service/**/__pycache__/
+service/*.egg-info/
+service/.venv/
