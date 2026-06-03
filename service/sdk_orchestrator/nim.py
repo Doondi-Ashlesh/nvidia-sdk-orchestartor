@@ -19,6 +19,16 @@ from functools import lru_cache
 
 from openai import OpenAI
 
+# Auto-load service/.env (or any parent .env) so NVIDIA_NIM_API_KEY persists
+# across shell sessions — no need to `set`/`export` every time. Guarded so the
+# service still works if python-dotenv isn't installed.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEFAULT_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
 DEFAULT_REASONER_MODEL = "nvidia/nemotron-3-super-120b-a12b"
