@@ -60,8 +60,38 @@ Rules:
 """
 
 
-def generate_section(service: dict, use_case: str, blueprint_text: str) -> list[dict]:
-    """Generate the cells for one service. Returns [{type, source}, ...]."""
+def _clean_cells(cells: list) -> list[dict]:
+    """Keep only well-formed cells with non-empty source.
+
+    Filters out the failure modes seen in practice: blank cells, missing
+    source, and cells whose source is just leaked JSON structure (e.g. a
+    trailing '}]}' artifact from the model's response bleeding through).
+    """
+    out = []
+    for c in cells:
+        if not isinstance(c, dict):
+            continue
+        ctype = c.get("type")
+        src = c.get("source")
+        if ctype not in ("markdown", "code") or not isinstance(src, str):
+            continue
+        src = src.strip()
+        if not src:
+            continue
+        # reject sources that are only JSON punctuation (leaked structure)
+        if all(ch in "{}[]\":, \n\t" for ch in src):
+            continue
+        out.append({"type": ctype, "source": src})
+    return out
+
+
+def generate_section(service: dict, use_case: str, blueprint_text: str, _retry: bool = True) -> list[dict]:
+    """Generate cells for one service. Returns cleaned [{type, source}, ...].
+
+    Retries once if the first attempt yields no usable cells — the model is
+    not output-stable across calls, and an empty section must not silently
+    become blank cells with fake cellRefs (the bug seen on triton/nim).
+    """
     user = (
         f"USE CASE:\n{use_case}\n\n"
         f"SERVICE: {service['name']} (id: {service['id']})\n"
@@ -69,6 +99,8 @@ def generate_section(service: dict, use_case: str, blueprint_text: str) -> list[
     )
     if blueprint_text:
         user += f"REFERENCE BLUEPRINT EXCERPT — ground on this:\n{blueprint_text[:8000]}\n"
+
+    from sdk_orchestrator.plan import _extract_json
 
     raw = nim.chat(
         messages=[
@@ -79,12 +111,13 @@ def generate_section(service: dict, use_case: str, blueprint_text: str) -> list[
         thinking=False,
         temperature=0.0,
     )
-    from sdk_orchestrator.plan import _extract_json
+    cells = _clean_cells(_extract_json(raw).get("cells", []))
 
-    parsed = _extract_json(raw)
-    cells = parsed.get("cells", [])
+    if not cells and _retry:
+        print(f"[generate] {service['id']}: empty, retrying once…", file=sys.stderr)
+        return generate_section(service, use_case, blueprint_text, _retry=False)
     if not cells:
-        print(f"[generate] WARNING: no cells for {service['id']}; raw: {raw[:300]}", file=sys.stderr)
+        print(f"[generate] WARNING: {service['id']} produced no usable cells after retry", file=sys.stderr)
     return cells
 
 
@@ -113,16 +146,34 @@ def tailor_notebook(use_case: str, blueprint_id: str | None = None) -> dict:
     for svc in services_plan:
         print(f"[generate] section: {svc['id']} …", file=sys.stderr)
         section = generate_section(svc, use_case, blueprint_text)
+
+        # Honest handling of a section that failed to generate: do NOT emit
+        # blank cells with cellRefs claiming implementation (the triton/nim
+        # bug). Mark the service unresolved with empty cellRefs and a visible
+        # note cell, so the manifest tells the truth.
+        if not section:
+            nb_cells.append(
+                nbformat.v4.new_markdown_cell(
+                    f"## {svc['name']}\n\n"
+                    f"_Section generation failed — needs regeneration or manual authoring._"
+                )
+            )
+            manifest_services.append(
+                ManifestService(
+                    id=svc["id"], name=svc["name"], role=svc["role"], layer=svc["layer"],
+                    cellRefs=[], verification="unresolved",
+                )
+            )
+            continue
+
         cell_refs: list[int] = []
         for cell in section:
             idx = len(nb_cells)
-            ctype = cell.get("type", "code")
-            src = cell.get("source", "")
-            if ctype == "markdown":
-                nb_cells.append(nbformat.v4.new_markdown_cell(src))
+            if cell["type"] == "markdown":
+                nb_cells.append(nbformat.v4.new_markdown_cell(cell["source"]))
             else:
                 nb_cells.append(
-                    nbformat.v4.new_code_cell(src, metadata={"service_id": svc["id"]})
+                    nbformat.v4.new_code_cell(cell["source"], metadata={"service_id": svc["id"]})
                 )
                 cell_refs.append(idx)  # cellRefs point at the CODE cells
                 code_cell_count += 1
@@ -134,7 +185,7 @@ def tailor_notebook(use_case: str, blueprint_id: str | None = None) -> dict:
                 role=svc["role"],
                 layer=svc["layer"],
                 cellRefs=cell_refs,
-                verification="not_run",  # Phase 3 fills this
+                verification="not_run",  # Phase 3 fills this on real GPU
             )
         )
 
