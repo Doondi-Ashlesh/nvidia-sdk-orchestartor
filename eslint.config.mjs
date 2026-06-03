@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Non-shipped dev code — scratch experiments + archived scripts are not
+    // production source and should not gate CI on lint rules meant for the app.
+    "scratch/**",
+    "scripts/**",
+    // The V2 Python service has its own (Python) tooling, not ESLint.
+    "service/**",
+    // Local git worktrees + tool config are not part of the app source.
+    ".claude/**",
   ]),
 ]);
 
