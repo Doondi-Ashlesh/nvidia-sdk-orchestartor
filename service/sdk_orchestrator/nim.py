@@ -87,12 +87,17 @@ def chat(
     temperature: float = 0.0,
     max_tokens: int = 4096,
     json_mode: bool = False,
+    thinking: bool = False,
 ) -> str:
     """Chat completion via the NIM reasoner model (Nemotron).
 
     json_mode=True requests strict JSON output (constrained decoding) so we
-    don't post-hoc parse/repair — used for structured outputs like the
-    architecture plan.
+    don't post-hoc parse/repair — used for structured outputs like the plan.
+
+    thinking=False (default) disables Nemotron's chain-of-thought. Structured
+    generation (the plan) doesn't need CoT and it's much faster without it —
+    CoT can add 1-3 min of "thinking" tokens before the answer on the 120B
+    model. Set thinking=True only where extended reasoning genuinely helps.
     """
     model = model or os.environ.get("NIM_REASONER_MODEL", DEFAULT_REASONER_MODEL)
     kwargs: dict = {
@@ -100,6 +105,8 @@ def chat(
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
+        # Nemotron reasoning toggle, off by default for speed on structured tasks.
+        "extra_body": {"chat_template_kwargs": {"enable_thinking": thinking}},
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
