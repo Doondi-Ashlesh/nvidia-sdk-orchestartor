@@ -85,12 +85,16 @@ def _clean_cells(cells: list) -> list[dict]:
     return out
 
 
-def generate_section(service: dict, use_case: str, blueprint_text: str, _retry: bool = True) -> list[dict]:
+def generate_section(
+    service: dict, use_case: str, blueprint_text: str, _attempts_left: int = 2
+) -> list[dict]:
     """Generate cells for one service. Returns cleaned [{type, source}, ...].
 
-    Retries once if the first attempt yields no usable cells — the model is
-    not output-stable across calls, and an empty section must not silently
-    become blank cells with fake cellRefs (the bug seen on triton/nim).
+    Retries up to 2x (3 attempts total) if a section yields no usable cells.
+    Section generation is intermittently flaky on the shared NIM endpoint
+    (~1 section/run returns empty), and an empty section can't be backfilled
+    by Phase 3 verification (which fixes broken cells, not missing ones) — so
+    we spend a couple of cheap retries here to avoid permanent gaps.
     """
     user = (
         f"USE CASE:\n{use_case}\n\n"
@@ -113,11 +117,11 @@ def generate_section(service: dict, use_case: str, blueprint_text: str, _retry: 
     )
     cells = _clean_cells(_extract_json(raw).get("cells", []))
 
-    if not cells and _retry:
-        print(f"[generate] {service['id']}: empty, retrying once…", file=sys.stderr)
-        return generate_section(service, use_case, blueprint_text, _retry=False)
+    if not cells and _attempts_left > 0:
+        print(f"[generate] {service['id']}: empty, retrying ({_attempts_left} left)…", file=sys.stderr)
+        return generate_section(service, use_case, blueprint_text, _attempts_left - 1)
     if not cells:
-        print(f"[generate] WARNING: {service['id']} produced no usable cells after retry", file=sys.stderr)
+        print(f"[generate] WARNING: {service['id']} produced no usable cells after retries", file=sys.stderr)
     return cells
 
 
