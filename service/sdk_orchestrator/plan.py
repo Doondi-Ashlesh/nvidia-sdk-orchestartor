@@ -130,24 +130,33 @@ def plan_architecture(use_case: str, blueprint_id: str | None = None) -> dict:
         )
 
     # 3. Validate service ids against the catalog; enrich with name + layer.
+    # Defensive: the model isn't shape-stable across runs even with json_mode —
+    # `services` may be a list of dicts {id, role} OR a list of bare id strings.
     services, dropped = [], []
     valid_ids = set()
     for s in parsed.get("services", []):
-        sid = s.get("id", "")
+        if isinstance(s, str):
+            sid, role = s, ""
+        elif isinstance(s, dict):
+            sid, role = s.get("id", ""), s.get("role", "")
+        else:
+            continue
         if catalog.is_valid(sid):
             services.append(
-                {"id": sid, "name": catalog.name_of(sid), "role": s.get("role", ""), "layer": catalog.layer_of(sid)}
+                {"id": sid, "name": catalog.name_of(sid), "role": role, "layer": catalog.layer_of(sid)}
             )
             valid_ids.add(sid)
-        else:
+        elif sid:
             dropped.append(sid)
 
     # 4. Keep only connections whose endpoints survived validation.
-    connections = [
-        {"from": c["from"], "to": c["to"], "data": c.get("data", "")}
-        for c in parsed.get("connections", [])
-        if c.get("from") in valid_ids and c.get("to") in valid_ids
-    ]
+    connections = []
+    for c in parsed.get("connections", []):
+        if not isinstance(c, dict):
+            continue
+        frm, to = c.get("from"), c.get("to")
+        if frm in valid_ids and to in valid_ids:
+            connections.append({"from": frm, "to": to, "data": c.get("data", "")})
 
     # 5. Sort services by layer order for clean left→right visualization.
     services.sort(key=lambda s: catalog.LAYER_ORDER.index(s["layer"]) if s["layer"] in catalog.LAYER_ORDER else 99)
