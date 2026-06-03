@@ -100,3 +100,4 @@ service/milvus.db
 service/**/__pycache__/
 service/*.egg-info/
 service/.venv/
+service/vectorstore.json

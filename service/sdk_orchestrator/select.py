@@ -13,14 +13,14 @@ The NAT @register_function wrapper lives in register.py and just calls this.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-
-from pymilvus import MilvusClient
 
 from sdk_orchestrator import nim
+from sdk_orchestrator.store import get_store
 
-MILVUS_DB = Path(__file__).resolve().parents[1] / "milvus.db"
-COLLECTION = "blueprints"
+# Similarity floor — below this, no blueprint is a real match and the agent
+# should generate from scratch rather than anchor on an irrelevant blueprint
+# (the lesson from prior over-eager matching). Tunable.
+MATCH_FLOOR = 0.30
 
 
 def select_blueprint(use_case: str, top_k: int = 3) -> dict:
@@ -32,36 +32,15 @@ def select_blueprint(use_case: str, top_k: int = 3) -> dict:
         "candidates": [{"id": "enterprise-rag", "score": 0.71, "source": "..."}, ...],
         "best": "enterprise-rag" | None     # None if nothing clears the floor
       }
-
-    A minimum-similarity floor avoids forcing a weak match — below it we return
-    best=None so the agent generates from scratch rather than anchoring on an
-    irrelevant blueprint (the lesson from prior over-eager matching).
     """
-    if not MILVUS_DB.exists():
-        raise FileNotFoundError(
-            f"{MILVUS_DB} not found. Run `python -m sdk_orchestrator.ingest` first."
-        )
-
     query_vec = nim.embed_query(use_case)
-    client = MilvusClient(str(MILVUS_DB))
-    hits = client.search(
-        collection_name=COLLECTION,
-        data=[query_vec],
-        limit=top_k,
-        output_fields=["id", "source"],
-    )[0]
+    store = get_store()
+    hits = store.search(query_vec, top_k=top_k)
 
     candidates = [
-        {
-            "id": h["entity"]["id"],
-            "score": round(float(h["distance"]), 4),  # COSINE similarity
-            "source": h["entity"].get("source", ""),
-        }
+        {"id": h["id"], "score": h["score"], "source": h.get("source", "")}
         for h in hits
     ]
-
-    # Similarity floor — tunable. Below this, no blueprint is a real match.
-    MATCH_FLOOR = 0.30
     best = candidates[0]["id"] if candidates and candidates[0]["score"] >= MATCH_FLOOR else None
 
     return {"use_case": use_case, "candidates": candidates, "best": best}

@@ -16,13 +16,19 @@ requires-python = ">=3.11,<3.14"   # nvidia-nat supports 3.11–3.13
 
 dependencies = [
     "nvidia-nat",                  # NeMo Agent Toolkit (the harness — D1)
-    "pymilvus>=2.4",               # Milvus Lite (embedded vector store — D8)
     "openai>=1.0",                 # OpenAI-compatible client for hosted NIM
     "pydantic>=2.0",               # manifest contract + tool schemas
     "nbformat>=5.10",              # reading blueprint .ipynb files
+    "numpy>=1.26",                 # default (numpy) vector backend — works on Windows
+    "python-dotenv>=1.0",          # auto-load service/.env
 ]
 
 [project.optional-dependencies]
+# Milvus backend — production / Linux / Brev. On Windows use the default numpy
+# backend for dev (milvus-lite is Linux/macOS only). Select with VECTOR_BACKEND=milvus.
+milvus = [
+    "pymilvus>=2.4",
+]
 dev = [
     "ruff",
     "pytest",

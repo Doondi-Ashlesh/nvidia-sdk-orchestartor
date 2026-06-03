@@ -22,15 +22,12 @@ import json
 import sys
 from pathlib import Path
 
-from pymilvus import DataType, MilvusClient
-
 from sdk_orchestrator import nim
+from sdk_orchestrator.store import get_store
 
 # data/blueprints/ lives at the repo root, one level up from service/
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BLUEPRINTS_DIR = REPO_ROOT / "data" / "blueprints"
-MILVUS_DB = Path(__file__).resolve().parents[1] / "milvus.db"
-COLLECTION = "blueprints"
 EMBED_DIM = 1024  # nv-embedqa-e5-v5 output dimension
 
 
@@ -72,20 +69,6 @@ def discover_blueprints() -> list[dict]:
     return records
 
 
-def build_collection(client: MilvusClient) -> None:
-    """(Re)create the blueprints collection with an explicit schema."""
-    if client.has_collection(COLLECTION):
-        client.drop_collection(COLLECTION)
-    schema = client.create_schema(auto_id=False, enable_dynamic_field=True)
-    schema.add_field("id", DataType.VARCHAR, is_primary=True, max_length=128)
-    schema.add_field("vector", DataType.FLOAT_VECTOR, dim=EMBED_DIM)
-    schema.add_field("text", DataType.VARCHAR, max_length=65535)
-    schema.add_field("source", DataType.VARCHAR, max_length=512)
-    index = client.prepare_index_params()
-    index.add_index(field_name="vector", index_type="AUTOINDEX", metric_type="COSINE")
-    client.create_collection(COLLECTION, schema=schema, index_params=index)
-
-
 def main() -> int:
     print(f"Reading blueprints from {BLUEPRINTS_DIR}")
     records = discover_blueprints()
@@ -97,15 +80,17 @@ def main() -> int:
     print("Embedding via hosted NIM (nv-embedqa-e5-v5)…")
     vectors = nim.embed([r["text"] for r in records])
 
-    print(f"Writing to Milvus Lite at {MILVUS_DB}")
-    client = MilvusClient(str(MILVUS_DB))
-    build_collection(client)
-    rows = [
-        {"id": r["id"], "vector": v, "text": r["text"][:65535], "source": r["source"]}
-        for r, v in zip(records, vectors)
-    ]
-    client.insert(COLLECTION, rows)
-    print(f"Ingested {len(rows)} blueprint(s) into collection '{COLLECTION}'. Done.")
+    store = get_store()
+    backend = type(store).__name__
+    print(f"Writing to vector store ({backend})…")
+    store.reset(dim=EMBED_DIM)
+    store.upsert(
+        [
+            {"id": r["id"], "vector": v, "text": r["text"], "source": r["source"]}
+            for r, v in zip(records, vectors)
+        ]
+    )
+    print(f"Ingested {len(records)} blueprint(s) via {backend}. Done.")
     return 0
 
 

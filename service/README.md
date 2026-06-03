@@ -26,24 +26,34 @@ pip install -e .                       # installs nvidia-nat, pymilvus, openai, 
 export NVIDIA_NIM_API_KEY=nvapi-...     # free key from build.nvidia.com
 ```
 
-## Ingest the blueprint corpus into Milvus Lite
+## Vector backend (grounding store, D8)
+
+Two backends behind one interface (`store.py`), chosen by `VECTOR_BACKEND`:
+
+| Backend | When | Notes |
+|---|---|---|
+| `numpy` (default) | local dev, incl. **Windows** | zero infra; JSON-backed brute-force cosine; correct + fast for the dev corpus |
+| `milvus` | production / Linux / Brev | cuVS-accelerated ANN at scale; `pip install -e .[milvus]` + `VECTOR_BACKEND=milvus` |
+
+`milvus-lite` is Linux/macOS only, so Windows dev uses the numpy backend. D8
+(Milvus is the production backend) is unchanged — this is just the dev path.
+
+## Ingest the blueprint corpus
 
 ```bash
 python -m sdk_orchestrator.ingest
 ```
 
-Reads `../data/blueprints/*.ipynb`, embeds them via `nv-embedqa-e5-v5`, writes a
-local `./milvus.db` with a populated `blueprints` collection. This is the
-grounding store the agent will query.
+Reads `../data/blueprints/*.ipynb`, embeds via `nv-embedqa-e5-v5`, writes the
+vector store (default: `./vectorstore.json`). This is the grounding store the
+agent queries.
 
-**Verify it worked:**
+**Verify selection works (the real test):**
 ```bash
-python -c "from pymilvus import MilvusClient; c=MilvusClient('./milvus.db'); \
-print('collections:', c.list_collections()); \
-print('count:', c.query('blueprints', filter='', output_fields=['id'], limit=10))"
+python -m sdk_orchestrator.select "HIPAA-compliant clinical chatbot"
+python -m sdk_orchestrator.select "real-time credit card fraud detection"
 ```
-You should see the `blueprints` collection with one row per blueprint
-(`enterprise-rag`, `fraud-detection`).
+First should rank `enterprise-rag` top, second `fraud-detection` top.
 
 ## Run the agent (Increment 1B onward)
 
