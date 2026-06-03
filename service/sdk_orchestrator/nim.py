@@ -78,3 +78,30 @@ def embed_query(text: str, model: str | None = None) -> list[float]:
         extra_body={"input_type": "query", "truncate": "END"},
     )
     return resp.data[0].embedding
+
+
+def chat(
+    messages: list[dict],
+    *,
+    model: str | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = 4096,
+    json_mode: bool = False,
+) -> str:
+    """Chat completion via the NIM reasoner model (Nemotron).
+
+    json_mode=True requests strict JSON output (constrained decoding) so we
+    don't post-hoc parse/repair — used for structured outputs like the
+    architecture plan.
+    """
+    model = model or os.environ.get("NIM_REASONER_MODEL", DEFAULT_REASONER_MODEL)
+    kwargs: dict = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    resp = client().chat.completions.create(**kwargs)
+    return resp.choices[0].message.content or ""
