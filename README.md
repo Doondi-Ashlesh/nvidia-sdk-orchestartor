@@ -57,8 +57,7 @@ Click any node to load its full official description, tags, and connections in t
 
 ### Demo Video
 
-https://github.com/Doondi-Ashlesh/nvidia-ecosystem-visualizer/raw/master/media/Demo.mp4
-
+(https://drive.google.com/file/d/1NStjxFonpTTMm0r2MeAdiRI_OUtCgqGQ/view)
 ---
 
 ## Features
