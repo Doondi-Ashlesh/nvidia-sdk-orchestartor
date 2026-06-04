@@ -183,3 +183,5 @@ Every entry in `data/nvidia.ts` includes a source comment linking to the exact o
 ---
 
 
+
+<!-- Deployment: this branch (v1-visualizer) is the Vercel production branch serving the V1 ecosystem visualizer. Active V2 (agent + NVIDIA stack) development lives on `master`. -->
