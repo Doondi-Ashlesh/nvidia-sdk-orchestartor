@@ -1,0 +1,117 @@
+{
+  "_comment": "NVIDIA AI Blueprint cards — the grounding corpus for SELECT + PLAN (D8). Each card's title+description is embedded for use-case matching; the services list + description ground the architecture plan. Sourced from build.nvidia.com/blueprints and github.com/NVIDIA-AI-Blueprints. Full notebooks (for GENERATE grounding) exist for a subset; the rest ground on the card + the NVIDIA Skills catalog (Phase 2C). Service ids map to data/nvidia.ts.",
+  "blueprints": [
+    {
+      "id": "enterprise-rag",
+      "title": "Enterprise RAG Pipeline",
+      "domain": "enterprise knowledge, retrieval, document Q&A",
+      "description": "Production retrieval-augmented generation over private enterprise documents. Multimodal ingestion of text, tables, charts and PDFs; embedding, hybrid dense+sparse retrieval and reranking; grounded LLM generation with citations; optional safety guardrails. For knowledge assistants, copilots, internal search, and document question-answering over proprietary corpora.",
+      "services": ["nemo-retriever", "nim", "nemotron", "nemo-guardrails", "triton", "ai-enterprise"]
+    },
+    {
+      "id": "fraud-detection",
+      "title": "Financial Fraud Detection",
+      "domain": "financial services, tabular ML, anomaly detection",
+      "description": "GPU-accelerated real-time fraud detection over tabular transaction data. Feature engineering and gradient-boosted / graph models on RAPIDS, optimized inference, low-latency scoring of streaming transactions. For credit-card fraud, payment anomaly detection, transaction monitoring, and risk scoring.",
+      "services": ["rapids", "tensorrt", "triton", "nim", "model-optimizer"]
+    },
+    {
+      "id": "aiq",
+      "title": "AI-Q Research Agent",
+      "domain": "agentic AI, enterprise research, deep search",
+      "description": "Customizable enterprise research agent that connects to your data, reasons over it, and returns cited answers or long-form reports. Two-tier intent routing between fast shallow lookups and a multi-agent deep-research loop (orchestrator, planner, researcher). For enterprise search, competitive analysis, due diligence, and knowledge synthesis.",
+      "services": ["nemo-agent-toolkit", "nemo-retriever", "nim", "nemotron", "nemo-guardrails"]
+    },
+    {
+      "id": "ai-virtual-assistant",
+      "title": "AI Virtual Assistant for Customer Service",
+      "domain": "customer service, chatbot, support automation",
+      "description": "AI-driven virtual assistant that streamlines customer service with automated, context-aware responses grounded in company knowledge. Retrieval over support docs, conversation memory, safety guardrails, multi-turn dialog. For customer support copilots, help desks, and automated ticket resolution.",
+      "services": ["nemo-retriever", "nim", "nemo-guardrails", "nemotron", "nemo-agent-toolkit"]
+    },
+    {
+      "id": "video-search-and-summarization",
+      "title": "Video Search and Summarization (VSS)",
+      "domain": "computer vision, video analytics, multimodal",
+      "description": "GPU-accelerated vision agents for video analytics: search, summarize and answer questions over long-form video. Frame extraction, vision-language understanding, temporal reasoning, and natural-language querying of video content. For surveillance review, media analysis, sports, and industrial video inspection.",
+      "services": ["nim", "tensorrt", "triton", "nemo-retriever", "nemotron"]
+    },
+    {
+      "id": "pdf-to-podcast",
+      "title": "PDF to Podcast",
+      "domain": "multimodal RAG, document-to-audio, speech",
+      "description": "Transforms PDF documents into engaging two-host podcast-style audio. Multimodal extraction of text, tables and figures; grounded script generation; natural text-to-speech with distinct voices. For turning reports, papers and filings into on-the-go audio content.",
+      "services": ["nemo-retriever", "nim", "nemotron", "nemo-curator"]
+    },
+    {
+      "id": "retail-shopping-assistant",
+      "title": "Retail Shopping Assistant",
+      "domain": "retail, e-commerce, multi-agent",
+      "description": "Multi-agent shopping advisor with text and image-based product search, personalized recommendations via agentic RAG, complex multi-item task handling, and shopping-cart management. For e-commerce copilots, conversational shopping, visual product discovery, and personalized cross-sell.",
+      "services": ["nemo-agent-toolkit", "nemo-retriever", "nim", "nemotron", "triton"]
+    },
+    {
+      "id": "retail-catalog-enrichment",
+      "title": "Retail Catalog Enrichment",
+      "domain": "retail, computer vision, content generation",
+      "description": "GenAI system that transforms raw product images into comprehensive structured catalog data — attributes, descriptions, tags. Vision-language extraction and generation at catalog scale. For e-commerce catalog automation, product data enrichment, and listing generation.",
+      "services": ["nim", "nemotron", "nemo-retriever"]
+    },
+    {
+      "id": "multi-agent-warehouse",
+      "title": "Multi-Agent Intelligent Warehouse",
+      "domain": "supply chain, logistics, optimization, multi-agent",
+      "description": "Multi-agent system for warehouse and supply-chain operations: routing, slotting, inventory and task coordination using GPU-accelerated optimization. For warehouse management, order fulfillment, route optimization, and logistics planning.",
+      "services": ["nemo-agent-toolkit", "cuopt", "nim", "nemotron"]
+    },
+    {
+      "id": "llm-router",
+      "title": "LLM Router",
+      "domain": "inference routing, cost optimization, serving",
+      "description": "Routes each LLM request to the best-fit model for the task, balancing quality, latency and cost. Classifier-driven routing across a pool of models. For multi-model serving, cost-quality optimization, and adaptive inference.",
+      "services": ["nim", "nemotron", "triton"]
+    },
+    {
+      "id": "bionemo-virtual-screening",
+      "title": "BioNeMo Virtual Screening",
+      "domain": "drug discovery, life sciences, molecular AI",
+      "description": "Generative virtual screening for drug discovery: protein structure prediction, molecular generation, and binding affinity prediction to accelerate hit identification. For pharmaceutical R&D, lead optimization, and computational chemistry workflows.",
+      "services": ["nim", "dgx-cloud", "ngc", "tensorrt"]
+    },
+    {
+      "id": "cufolio",
+      "title": "cuFOLIO Portfolio Optimization",
+      "domain": "financial services, quantitative finance, optimization",
+      "description": "GPU-accelerated portfolio optimization for investment workflows: large-scale mean-variance and constrained optimization, risk modeling, and rebalancing. For asset management, quantitative finance, and portfolio construction.",
+      "services": ["cuopt", "rapids", "cuda"]
+    },
+    {
+      "id": "quantitative-signal-discovery",
+      "title": "Quantitative Signal Discovery Agent",
+      "domain": "financial services, quantitative research, agentic AI",
+      "description": "Agentic system that discovers and validates quantitative trading signals over financial time-series and alternative data. GPU-accelerated data processing with agent-driven hypothesis generation and backtesting. For quant research, alpha discovery, and systematic strategy development.",
+      "services": ["nemo-agent-toolkit", "rapids", "nim", "nemotron"]
+    },
+    {
+      "id": "ai-model-distillation-financial",
+      "title": "AI Model Distillation for Financial Data",
+      "domain": "financial services, model optimization, training",
+      "description": "Distill large models into smaller, faster domain-specialized models for financial data, preserving accuracy while cutting inference cost. Knowledge distillation, fine-tuning and compression. For deploying efficient finance-specific LLMs at scale.",
+      "services": ["nemo", "model-optimizer", "nemotron", "megatron-lm"]
+    },
+    {
+      "id": "real-time-voice-agent",
+      "title": "Real-Time Voice Agent",
+      "domain": "speech, conversational AI, telephony",
+      "description": "Low-latency real-time voice agent built on Nemotron: speech-to-text, grounded LLM reasoning, guardrails, and text-to-speech for natural spoken conversation. For voice assistants, call-center automation, and telephony agents.",
+      "services": ["nim", "nemotron", "nemo-guardrails", "triton"]
+    },
+    {
+      "id": "digital-human",
+      "title": "Digital Human / Avatar Assistant",
+      "domain": "digital human, avatar, multimodal customer service",
+      "description": "Interactive digital-human avatar combining speech, animation and grounded LLM dialog for face-to-face customer engagement. Real-time avatar rendering with retrieval-grounded responses and guardrails. For virtual concierges, kiosks, branded assistants, and interactive customer service.",
+      "services": ["nim", "nemotron", "nemo-guardrails", "triton", "nemo-retriever"]
+    }
+  ]
+}

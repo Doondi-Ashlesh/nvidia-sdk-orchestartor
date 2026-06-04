@@ -31,41 +31,30 @@ BLUEPRINTS_DIR = REPO_ROOT / "data" / "blueprints"
 EMBED_DIM = 1024  # nv-embedqa-e5-v5 output dimension
 
 
-def extract_blueprint_text(ipynb_path: Path) -> str:
-    """Pull the substantive text from a blueprint notebook for embedding.
-
-    Concatenate markdown cells (the narrative — what the blueprint is for) and
-    the first line of each code cell (the API surface signal). We deliberately
-    do NOT embed full code bodies: the retrieval signal we want is "what is this
-    blueprint about and which services does it use," not raw implementation.
-    """
-    nb = json.loads(ipynb_path.read_text(encoding="utf-8"))
-    parts: list[str] = []
-    for cell in nb.get("cells", []):
-        src = cell.get("source", "")
-        if isinstance(src, list):
-            src = "".join(src)
-        if cell.get("cell_type") == "markdown":
-            parts.append(src)
-        elif cell.get("cell_type") == "code":
-            first = next((ln for ln in src.splitlines() if ln.strip()), "")
-            if first:
-                parts.append(first)
-    return "\n".join(parts).strip()
-
-
 def discover_blueprints() -> list[dict]:
-    """Find blueprint notebooks and derive id + content."""
-    if not BLUEPRINTS_DIR.exists():
-        raise FileNotFoundError(f"No blueprints dir at {BLUEPRINTS_DIR}")
+    """Read the blueprint cards and build one grounding record per blueprint.
+
+    Each card's title + description + domain + services is BOTH the embedding
+    text (for SELECT matching) and the grounding text (plan.py reads it back to
+    ground the architecture plan). Cards cover the full NVIDIA blueprint catalog
+    — far more than the handful with full notebooks — so SELECT/PLAN work across
+    every domain (RAG, fraud, video, drug discovery, retail, voice, etc.).
+
+    Full notebooks (for GENERATE-step grounding) exist only for a subset and are
+    handled separately; the rest ground on the card + the NVIDIA Skills catalog.
+    """
+    cards_path = BLUEPRINTS_DIR / "cards.json"
+    if not cards_path.exists():
+        raise FileNotFoundError(f"No cards.json at {cards_path} — the blueprint corpus.")
+    cards = json.loads(cards_path.read_text(encoding="utf-8")).get("blueprints", [])
     records = []
-    for ipynb in sorted(BLUEPRINTS_DIR.glob("*.ipynb")):
-        bp_id = ipynb.stem  # e.g. "enterprise-rag", "fraud-detection"
-        text = extract_blueprint_text(ipynb)
-        if not text:
-            print(f"  ! skipping {bp_id} (no extractable text)", file=sys.stderr)
-            continue
-        records.append({"id": bp_id, "text": text, "source": str(ipynb.name)})
+    for c in cards:
+        text = (
+            f"{c['title']}. {c['description']} "
+            f"Domain: {c['domain']}. "
+            f"NVIDIA services: {', '.join(c['services'])}."
+        )
+        records.append({"id": c["id"], "text": text, "source": "cards.json"})
     return records
 
 
